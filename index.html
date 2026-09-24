@@ -131,8 +131,13 @@
     <h2 style="margin-top:12px">② 找码表</h2>
     <div class="row">
       <select id="catSel" style="width:230px" title="官方 app 的 29 个品类（编号=版面编号）"></select>
-      <input id="brand" value="Sony" style="width:100px" placeholder="品牌 / 码表号">
+      <select id="brandSel" style="width:190px" title="这个品类下的品牌（按字母序）"></select>
       <button id="btnSearch">搜索</button>
+    </div>
+    <div class="row">
+      <input id="numQ" style="width:110px" placeholder="码表号，如 4090" title="手册上印的 setup code，直接填数字">
+      <button id="btnNum">按码表号查</button>
+      <span class="hint" style="padding-top:6px;">（码表号就是 profile 里的那个编号，如 T4090 → 4090）</span>
     </div>
     <div class="hint" id="catHint" style="display:none"></div>
     <div id="list"></div>
@@ -279,7 +284,7 @@ function setState(t,ok){ $("state").textContent=t; $("state").className="pill "+
    回报失败不影响使用：没有那个接口就静默忽略。
    ★ 托管到 GitHub Pages 之类的静态站点时**不发回报**（那边没有 /__report 接口，
      发了只会在控制台刷 404），只在本地服务器上开。 */
-const VER = "2026-09-24n · ①找码表②改用官方 app 的 29 个品类（winmd 枚举 + resources.pri 名字），选了品类就按它的版面画";
+const VER = "2026-09-24o · ②品牌改下拉（随品类联动、字母序、带条数）；码表号单独一个输入框";
 const REPORT_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname) ||
                      location.protocol === "file:";
 let REPORT_OK = true;
@@ -742,7 +747,10 @@ async function loadLib(){
         sel.appendChild(o);
       });
       sel.value = "1";                                  // 默认电视，和官方一致
-      log("sys","已载入官方品类表：" + APPCATS.length + " 个品类（winmd DeviceCategoryEnum + resources.pri 名字）");
+      buildBrandIndex();
+      const nb = fillBrands();
+      log("sys","已载入官方品类表：" + APPCATS.length + " 个品类（winmd DeviceCategoryEnum + resources.pri 名字）；"
+          + "当前品类下 " + nb + " 个品牌");
       log("sys","注意：多个品类共用同一个码表池（如 蓝光播放器/DVD 播放器 都是 DVD），这是官方行为");
     }catch(e){ log("err","没载入 app_categories.json —— 退回按库类别筛"); }
     if (!APPCATS.length){
@@ -753,6 +761,7 @@ async function loadLib(){
         o.textContent=(TYPE_NAMES[t]||t); sel.appendChild(o); });
       sel.value = "";
     }
+    if (!Object.keys(BRANDS).length){ buildBrandIndex(); fillBrands(); }
   }catch(e){ $("lib").textContent = "码库载入失败"; $("lib").className="pill bad"; }
   try{
     const lay = await (await fetch("remote_layout2.json")).json();
@@ -769,7 +778,41 @@ async function loadLib(){
    ★ 多个品类共用同一个"主类别"（比如蓝光/DVD/DVD+录像机 都是 DVD）——
      它们的候选码表完全相同，这是官方行为，不是我们的 bug。 */
 let APPCATS = [];                       // [{no, enum, name, db, attach, prefix, offset, codesets, layout, inferred}]
+let BRANDS = {};                        // 码表池 -> [[品牌, 条数]...]；另有 BRANDS[""] = 全部
 function appCat(){ return APPCATS.find(c => String(c.no) === $("catSel").value) || null; }
+/* 品类 → 这个品类下的品牌（同一池子的品类共享同一份品牌表） */
+function buildBrandIndex(){
+  const m = {};
+  for (const r of INDEX){
+    const db = r[0];
+    if (!m[db]) m[db] = new Map();
+    const cur = m[db].get(r[1]) || 0;
+    m[db].set(r[1], cur + 1);
+  }
+  const all = new Map();
+  for (const db in m) for (const [b, n] of m[db]) all.set(b, (all.get(b) || 0) + n);
+  const sortBy = mp => [...mp.entries()].sort((x, y) => String(x[0]).localeCompare(String(y[0]), "en", {sensitivity:"base"}));
+  BRANDS = {};
+  for (const db in m) BRANDS[db] = [{b:"", n:0}].concat(sortBy(m[db]).map(([b, n]) => ({b, n})));
+  BRANDS[""] = [{b:"", n:0}].concat(sortBy(all).map(([b, n]) => ({b, n})));
+}
+/* 换品类就重填品牌下拉。默认尽量选 Sony（本项目的设备都是索尼），没有就选中"全部品牌"。 */
+function fillBrands(){
+  const c = appCat();
+  const list = BRANDS[c ? c.db : ""] || [{b:"", n:0}];
+  const sel = $("brandSel");
+  const keep = sel.value;
+  sel.innerHTML = "";
+  list.forEach(({b, n}) => {
+    const o = document.createElement("option");
+    o.value = b;
+    o.textContent = b ? (b + "（" + n + "）") : "全部品牌（" + (list.length - 1) + " 个）";
+    sel.appendChild(o);
+  });
+  const has = v => list.some(x => x.b === v);
+  sel.value = has(keep) ? keep : (has("Sony") ? "Sony" : "");
+  return list.length - 1;
+}
 function catHint(){
   const c = appCat();
   if (!c) return "";
@@ -779,13 +822,13 @@ function catHint(){
 }
 function search(){
   const c = appCat(), db = c ? c.db : null;
-  const b = $("brand").value.trim().toLowerCase();
-  const numQ = /^\d{2,4}$/.test(b) ? b : null;      // 直接输码表号（手册上印的那种）
+  const brand = $("brandSel") ? $("brandSel").value : "";
+  const numQ = ($("numQ") && $("numQ").value.trim()) || "";
   const out=[];
   for (const r of INDEX){
     if (db && r[0] !== db) continue;
-    if (numQ){ if (!String(r[2]).endsWith(numQ)) continue; }
-    else if (b && !String(r[1]).toLowerCase().includes(b)) continue;
+    if (brand && r[1] !== brand) continue;
+    if (numQ){ if (!/^\d+$/.test(numQ)) return; if (!String(r[2]).endsWith(numQ)) continue; }
     out.push(r); if (out.length>=300) break;
   }
   const el=$("list"); el.innerHTML="";
@@ -796,8 +839,9 @@ function search(){
                     d.classList.add("sel"); showSel(); };
     el.appendChild(d);
   });
-  $("selInfo").textContent = (c ? c.name + "：" : "全部品类：") + "找到 " + out.length + " 条" +
-      (out.length>=300?"（只显示前 300）":"") + (numQ ? "　（按码表号 " + numQ + " 查）" : "");
+  $("selInfo").textContent = (c ? c.name : "全部品类") + (brand ? " / " + brand : "") + "：" +
+      "找到 " + out.length + " 条" + (out.length>=300?"（只显示前 300）":"") +
+      (numQ ? "　（码表号含 " + numQ + "）" : "");
   const hint = $("catHint");
   if (hint){ hint.textContent = catHint(); hint.style.display = c ? "block" : "none"; }
 }
@@ -1409,9 +1453,13 @@ $("btnCopyLog").onclick=guard(async ()=>{
   log("sys","日志已复制到剪贴板（" + $("log").childElementCount + " 条），可以直接粘贴出来");
 },"复制日志");
 $("btnHelp").onclick=guard(showHelp,"帮助");
-$("brand").addEventListener("keydown", guard(e=>{ if (e.key==="Enter") return search(); },"搜索"));
-/* 换品类就重新筛码表，并让遥控器面板按所选品类重画（选了"蓝光"就画蓝光版面） */
-$("catSel").addEventListener("change", guard(()=>{ search(); renderRemote(); },"切换品类"));
+$("brandSel").addEventListener("keydown", guard(e=>{ if (e.key==="Enter") return search(); },"搜索"));
+/* 换品类：重填品牌下拉（品牌是按品类来的）→ 重新筛 → 遥控器面板按新品类重画 */
+$("catSel").addEventListener("change", guard(()=>{ fillBrands(); search(); renderRemote(); },"切换品类"));
+$("brandSel").addEventListener("change", guard(()=>search(),"选品牌"));
+$("btnNum").onclick = guard(()=>search(),"按码表号查");
+$("numQ").addEventListener("keydown", guard(e=>{ if (e.key==="Enter") return search(); },"按码表号查"));
+$("numQ").addEventListener("input", guard(()=>search(),"按码表号查"));
 
 loadLib();
 renderRemote();
