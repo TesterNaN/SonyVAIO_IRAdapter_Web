@@ -1,0 +1,4 @@
+# 别让 git 在这些文件上来回改行尾（否则每次 clone 都"全文件改动"）
+* text=auto eol=lf
+*.exe binary
+*.bin binary
