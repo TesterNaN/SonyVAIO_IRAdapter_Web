@@ -1884,6 +1884,78 @@ HKR,,DeviceInterfaceGUIDs,0x10000,"{AC2C0F91-97D5-452D-8F89-E055C8C498A4}"
 3. **重复/超时行为**：§13.3 那个"一次按下发射管亮 5~15 秒"到底是设备在重复发帧，
    还是别的原因 —— 接收端连着采样几秒就知道了。
 
+---
+
+## 30. ★ 官方软件那 29~30 个"品类"是怎么来的（winmd + cmd.conf 铁证）
+
+用户质疑："为什么码库只能选 10 个品类，应用里却有 30 个？"
+答案：**那 30 个是应用自己的一层分类表，查库时只取其中的"主类别"，落到库里仍是 10 个。**
+
+### 30.1 `cmd.conf` 里就写着映射（顺带印证 §20 的 TYPE_OFFSET）
+
+`VGP-URM10\qs_host\cmd.conf`（`QS_start("cmd.conf")` 读的就是它）：
+
+```
+dbroot:=en
+wsurl:=https://securetest.ueiquickset.com/QuickSetLite.svc
+devmap:={"TV":"T", "Cable, IPTV":"C", "Video Accessory":"N", "Satellite/DSS":"S",
+         "VCR":"V", "DVD":"Y", "Receiver, Misc Audio":"R,M", "Amplifier":"A",
+         "CD":"D", "Home Control":"H"}
+```
+
+* `devmap` 就是 §20 反推出来的 profile 前缀偏移表，连 **"Receiver, Misc Audio" → `R,M` 两个字母**
+  都对上了（我们当初是从实测 profile ID 反推的，这里是官方原文）。
+* `wsurl` = UEI 的 QuickSet **联网**服务；`oemid` / `userid` 在文件里是**空的**，
+  由应用运行时用 `QS_online_set_registration_key` / `QS_online_set_unique_id` 填。
+
+### 30.2 应用的 29 个品类 = `DeviceCategoryEnum`（winmd 全量导出）
+
+用 `RE/tools/winmd_dump`（`dotnet run`，注意把 `HOME/DO.NET_CLI_HOME/APPDATA` 重定向进工作区，
+否则沙箱不让写 `C:\Users\…\.dotnet`）把 `.winmd` 全量 dump 出来，枚举成员共 **29 个**：
+
+```
+CATEGORY_TV / Cable_Box / Satellite_Box / VCR / DVR / DVD_Player / DVD_VCR_Combo / DVD_DVR_Combo /
+Blu_Ray_Player / Home_Theater_Built_in_DVD / Home_Theater_Built_in_Blu_Ray / Home_Theater_Speaker /
+CD_Player / Stereo_System / HDD_Audio_System / AV_Receiver / Audio_Amp / Network_Speaker / iPod_Dock /
+Network_iPod_Dock_Server / Network_Audio_Player / Network_Video_Player / IP_STB / PC_Media_Center /
+Projector / Blu_Ray_Recorder / DVD_Recorder / STB / Walkman_Dock
+```
+
+### 30.3 每个品类同时带"主类别"和"附加类别"（这就是能长出 30 个的原因）
+
+`DeviceCategoryInfoStru` 的字段（winmd 原文）：
+
+| 字段 | 含义 |
+|---|---|
+| `enDeviceCategory` = `DeviceCategoryEnum` | 应用自己的品类（上面 29 个） |
+| `iUEIDeviceCategory` + `UEITypeNameMain` | **主类别**：落到码库那 10 个之一（"TV"/"DVD"/…） |
+| `iUEIAttachedDeviceCategory` + `UEITypeNameAttach` | **附加类别**：组合机的第二台设备 |
+| `strDeviceTypeName` / `standardCategoryName` | 显示名（中文来自 `resources.pri`） |
+
+⇒ `CATEGORY_DVD_VCR_Combo` = 主 `Y` + 附加 `V`；`Home_Theater_Built_in_Blu_Ray` = 主 `R` + 附加 `Y`。
+所以"蓝光/DVD/DVD+VCR/DVD+HDD"四个品类共用同一个 `Y` 码表池 —— 这也解释了 §29 里那张
+"细类型 → 前缀"的对应表为什么是多对一。
+
+菜单位置：`GetAllDeviceType(IList<DeviceCategoryInfoStru>)`（应用界面直接列这个），
+版面则由 `layout_table_<编号>_<maker>_<region>`（CommonXML 里 198 个文件、30 个编号）决定。
+
+### 30.4 型号：接口有，本地没数据
+
+* winmd 有 `DeviceModelInforStru{modelNumber, modelName}` 和
+  `GetDeviceModelsByTypeAndBrand(类型, 品牌, IList<DeviceModelInforStru>)`；
+* 但 C 接口 `QS_retrieve_models` 在**10 个类型 × 3 个品牌 = 30 个采样点**上全部返回
+  `-1 / data not found`；`en_dac1/2/3`（真码库 1.6MB）里 `model` 出现 **0 次**、型号样式字符串 0 种；
+* 只有 `QS_online_retrieve_models` 存在 ⇒ **型号列表是联网功能**（`wsurl` 见 30.1）。
+* 我们导出的 31,876 条里，"名称"字段 100% 都是码表号（`T4090` / `A0854`），没有一条真实型号名。
+
+### 30.5 对网页版的意义
+
+1. **可以原样搬应用那 29 个品类**（用它的中文名）：每个品类 = 主类别（决定码表池）+ 附加类别 + 版面编号。
+   但要如实说明：**挑"蓝光"不会比挑"DVD"少任何候选**，因为池子是同一个（应用也是这么干的）。
+2. **"不知道型号"只能靠扫描试用解决**（逐个装码表 → 试电源 → 有用/下一个，没用的自动删掉以免撞 46 个上限）。
+3. 地区过滤可以做得有依据：`DeviceTypeNumList_EU/NA/JP`（实测覆盖全库唯一码表的 67% / 44% / 3.8%）。
+
+
 
 
 

@@ -130,10 +130,11 @@
 
     <h2 style="margin-top:12px">② 找码表</h2>
     <div class="row">
-      <select id="type" style="width:150px"></select>
-      <input id="brand" value="Sony" style="width:100px" placeholder="品牌">
+      <select id="catSel" style="width:230px" title="官方 app 的 29 个品类（编号=版面编号）"></select>
+      <input id="brand" value="Sony" style="width:100px" placeholder="品牌 / 码表号">
       <button id="btnSearch">搜索</button>
     </div>
+    <div class="hint" id="catHint" style="display:none"></div>
     <div id="list"></div>
     <div class="hint" id="selInfo">未选中码表</div>
     <div class="hint" id="installMsg" style="display:none"></div>
@@ -278,7 +279,7 @@ function setState(t,ok){ $("state").textContent=t; $("state").className="pill "+
    回报失败不影响使用：没有那个接口就静默忽略。
    ★ 托管到 GitHub Pages 之类的静态站点时**不发回报**（那边没有 /__report 接口，
      发了只会在控制台刷 404），只在本地服务器上开。 */
-const VER = "2026-09-24m · 新增 ⑤ 接收/学习面板（学习模式 + 槽位扫描 + 一直等 + 捕获列表）供双机对拍";
+const VER = "2026-09-24n · ①找码表②改用官方 app 的 29 个品类（winmd 枚举 + resources.pri 名字），选了品类就按它的版面画";
 const REPORT_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname) ||
                      location.protocol === "file:";
 let REPORT_OK = true;
@@ -361,8 +362,24 @@ const NIBBLE_CANDS = { 0x0:[1], 0x1:[2], 0x2:[], 0x3:[4], 0x4:[7],
                        0x8:[19], 0x9:[15] };
 /* 官方版面里 keyId>0 的键，应该几乎全部落在设备键表里（-1 就是不支持被应用抹掉的），
    所以"覆盖率最高"的那张就是这台设备真正的版面 */
-function pickLayout(prof){
+/* preferNo：用户在②里明确选了某个官方品类（编号）时，就用那个品类的版面，
+   而不是靠键表去猜 —— 这样"我这是蓝光机"就能画成蓝光版面。 */
+function pickLayout(prof, preferNo){
   if (prof === null || !Number.isFinite(prof)) return null;
+  if (preferNo){
+    const e = LAYBYTYPE[String(preferNo)];
+    if (e && e.layouts && e.layouts.length){
+      let best = null;
+      for (const lay of e.layouts){
+        const keys = Object.values(lay).filter(v => v > 0 && v <= 255);
+        if (!keys.length) continue;
+        const hit = keys.filter(v => KEYSET.has(v)).length;
+        const score = hit / keys.length;
+        if (!best || score > best.score) best = {type:preferNo, name:e.name, models:e.models, layout:lay, score:score, forced:true};
+      }
+      if (best) return best;
+    }
+  }
   const nib = '0x' + ((prof >> 12) & 0xF).toString(16);
   const cands = (TYPEMAP.nibble_types && TYPEMAP.nibble_types[nib]) || NIBBLE_CANDS[(prof >> 12) & 0xF];
   if (!cands || !cands.length) return null;
@@ -408,9 +425,10 @@ function renderRemote(){
   /* ★ 非电视的码表**不能**按电视版面画 —— 电视版面上有频道键/数字键，
      装的是功放/DVD 时那些位置根本不存在，画出来就是错的。
      这种情况只列设备键表本身。 */
-  /* ★ 先试着用这台设备自己的官方版面（按 profile 类型自动挑）——
-     功放就画功放的版面，不会再冒出频道/数字键。 */
-  const lay = pickLayout(curProfile);
+  /* ★ 先试着用这台设备自己的官方版面：如果用户在②里明确选了品类，就照那个品类画；
+     否则按键表自动挑（功放就画功放的版面，不会再冒出频道/数字键）。 */
+  const sel = appCat();
+  const lay = pickLayout(curProfile, sel ? sel.no : null);
   if (lay){
     const cv = document.createElement("div");
     cv.className = "canvas";
@@ -709,10 +727,32 @@ async function loadLib(){
     loadKnow();
     buildNumIndex();
     await loadKeyMap();
-    const sel = $("type"); sel.innerHTML = "";
-    meta.types.forEach(t=>{ const o=document.createElement("option"); o.value=t;
-      o.textContent=(TYPE_NAMES[t]||t); sel.appendChild(o); });
-    sel.value = "TV";
+    /* 品类下拉：改用官方 app 那张 29 项的表（名字是应用自己的中文名） */
+    try{
+      const ac = await (await fetch("app_categories.json")).json();
+      APPCATS = ac.categories || [];
+      const sel = $("catSel"); sel.innerHTML = "";
+      const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "全部品类"; sel.appendChild(o0);
+      APPCATS.forEach(c=>{
+        const o = document.createElement("option");
+        o.value = String(c.no);
+        o.textContent = c.name + "（" + c.codesets + " 份" + (c.layout ? "" : "·无版面") + "）";
+        o.title = "编号 " + c.no + "　码表池：" + c.db + "　前缀 " + c.prefix +
+                  (c.attach ? "　附加设备：" + c.attach : "") + (c.inferred ? "　（主类别为推定）" : "");
+        sel.appendChild(o);
+      });
+      sel.value = "1";                                  // 默认电视，和官方一致
+      log("sys","已载入官方品类表：" + APPCATS.length + " 个品类（winmd DeviceCategoryEnum + resources.pri 名字）");
+      log("sys","注意：多个品类共用同一个码表池（如 蓝光播放器/DVD 播放器 都是 DVD），这是官方行为");
+    }catch(e){ log("err","没载入 app_categories.json —— 退回按库类别筛"); }
+    if (!APPCATS.length){
+      const sel = $("catSel");
+      sel.innerHTML = "";
+      const o0 = document.createElement("option"); o0.value=""; o0.textContent="全部品类"; sel.appendChild(o0);
+      meta.types.forEach(t=>{ const o=document.createElement("option"); o.value=t;
+        o.textContent=(TYPE_NAMES[t]||t); sel.appendChild(o); });
+      sel.value = "";
+    }
   }catch(e){ $("lib").textContent = "码库载入失败"; $("lib").className="pill bad"; }
   try{
     const lay = await (await fetch("remote_layout2.json")).json();
@@ -723,22 +763,43 @@ async function loadLib(){
   }catch(e){ log("sys","没载入 remote_layout2.json（标签会退化）"); }
   search();
 }
+/* ---------------- 品类表（官方 app 那 29 个） ----------------
+   来源见报告 §30：清单与编号来自 winmd 的 DeviceCategoryEnum（数值就是版面编号），
+   中文名来自应用自己的 resources.pri，主类别来自 cmd.conf 的 devmap。
+   ★ 多个品类共用同一个"主类别"（比如蓝光/DVD/DVD+录像机 都是 DVD）——
+     它们的候选码表完全相同，这是官方行为，不是我们的 bug。 */
+let APPCATS = [];                       // [{no, enum, name, db, attach, prefix, offset, codesets, layout, inferred}]
+function appCat(){ return APPCATS.find(c => String(c.no) === $("catSel").value) || null; }
+function catHint(){
+  const c = appCat();
+  if (!c) return "";
+  return c.name + " → 码表池「" + c.db + "」（前缀 " + c.prefix + "，profile 偏移 +0x" +
+         c.offset.toString(16).toUpperCase() + "）" + (c.attach ? "　附加设备：" + c.attach : "") +
+         (c.inferred ? "　※此品类无实测样本，主类别是类比推定的" : "");
+}
 function search(){
-  const t=$("type").value, b=$("brand").value.trim().toLowerCase(), out=[];
+  const c = appCat(), db = c ? c.db : null;
+  const b = $("brand").value.trim().toLowerCase();
+  const numQ = /^\d{2,4}$/.test(b) ? b : null;      // 直接输码表号（手册上印的那种）
+  const out=[];
   for (const r of INDEX){
-    if (t && r[0]!==t) continue;
-    if (b && !String(r[1]).toLowerCase().includes(b)) continue;
+    if (db && r[0] !== db) continue;
+    if (numQ){ if (!String(r[2]).endsWith(numQ)) continue; }
+    else if (b && !String(r[1]).toLowerCase().includes(b)) continue;
     out.push(r); if (out.length>=300) break;
   }
   const el=$("list"); el.innerHTML="";
   out.forEach(r=>{
     const d=document.createElement("div");
     d.textContent = r[1] + " · " + r[2] + " · " + r[4] + "B";
-    d.onclick=()=>{ selected=r; [...el.children].forEach(c=>c.classList.remove("sel"));
+    d.onclick=()=>{ selected=r; [...el.children].forEach(c2=>c2.classList.remove("sel"));
                     d.classList.add("sel"); showSel(); };
     el.appendChild(d);
   });
-  $("selInfo").textContent = "找到 " + out.length + " 条" + (out.length>=300?"（只显示前 300）":"");
+  $("selInfo").textContent = (c ? c.name + "：" : "全部品类：") + "找到 " + out.length + " 条" +
+      (out.length>=300?"（只显示前 300）":"") + (numQ ? "　（按码表号 " + numQ + " 查）" : "");
+  const hint = $("catHint");
+  if (hint){ hint.textContent = catHint(); hint.style.display = c ? "block" : "none"; }
 }
 function showSel(){
   const num = parseInt(String(selected[2]).match(/\d+$/)?.[0]||"", 10);
@@ -1349,6 +1410,8 @@ $("btnCopyLog").onclick=guard(async ()=>{
 },"复制日志");
 $("btnHelp").onclick=guard(showHelp,"帮助");
 $("brand").addEventListener("keydown", guard(e=>{ if (e.key==="Enter") return search(); },"搜索"));
+/* 换品类就重新筛码表，并让遥控器面板按所选品类重画（选了"蓝光"就画蓝光版面） */
+$("catSel").addEventListener("change", guard(()=>{ search(); renderRemote(); },"切换品类"));
 
 loadLib();
 renderRemote();
