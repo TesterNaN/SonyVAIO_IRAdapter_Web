@@ -1739,3 +1739,63 @@ Namespace=7(带字符串!) EndOfAttributes=8 EndOfStream=9 LineInfo=10 LineInfoA
 * 读超时**不要用 `CancelIo`**（会把别的线程在飞的 IRP 一起取消，缓冲区随后被释放 → 崩溃）；
   改用 WinUSB 自己的 `PIPE_TRANSFER_TIMEOUT`，让 IRP 到点自己带错完成，不留悬空操作。
 
+---
+
+## 27. ★ 更正：驱动只能装**有签名**的原厂包（自制 INF 在 x64 上必被拒）
+
+### 27.1 实测现场（用户真机、cmd 里粘贴）
+
+```
+C:\Users\ASUS>powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:VGP_URL='https://…/install-winusb.ps1'; irm $env:VGP_URL | iex"
+  Sony VGP-URM10  ->  WinUSB driver helper
+  INF written to: C:\Users\ASUS\AppData\Local\Temp\vgp-urm10-winusb.inf
+  Installing (pnputil /add-driver ... /install) ...
+    无法添加驱动程序包: 第三方 INF 不包含数字签名信息。
+  [WARN] pnputil exited with code -536870353
+```
+
+命令本身**没问题**（脚本确实从 GitHub Pages 拉下来并跑了，顺带证明 Pages 是通的），
+卡在最后一步：`-536870353 = 0xE000024F = SPAPI_E_NO_CATALOG_FOR_OEM_INF`
+—— **x64 Windows 拒绝没有数字签名（catalog）的驱动包**。
+
+⇒ §23 里"① 复制安装命令 / 自制 INF"这条路在干净 Windows 上是**死路**，与脚本写得好不好无关。
+
+### 27.2 能用的那条路：原厂包本来就是签名 + 绑 WinUSB
+
+原厂包解出来的 `Disk1\x64\`（安装时自解压到 `%TEMP%\{GUID}\`）：
+
+| 文件 | 大小 | 说明 |
+|---|---|---|
+| `SIRD.inf` | 3426 B | `CatalogFile=SIRD.cat`；`[Standard.NTamd64.6.3]` 把 `USB\VID_054C&PID_0883` 指到 `USB_Install` |
+| `sird.cat` | 11018 B | **`Get-AuthenticodeSignature` = Valid，签发者 `Microsoft Windows Hardware Compatibility Publisher`（WHQL）** |
+| `SIRD.sys` | 19968 B | 只在 06D9（老型号）那条路上用；0883 走的是 in-box WinUSB |
+| `WdfCoinstaller01011.dll` / `winusbcoinstaller2.dll` | 2.7 MB | INF 的 `CopyFiles` 需要它们在场 |
+
+关键几段（**一个字都不能改，catalog 覆盖它的哈希**）：
+
+```
+[Standard.NTamd64.6.3]
+%SIRD.DeviceDesc%=USB_Install, USB\VID_054C&PID_0883
+[USB_Install]
+Include = winusb.inf
+Needs   = WINUSB.NT
+[Dev_AddReg]
+HKR,,DeviceInterfaceGUIDs,0x10000,"{AC2C0F91-97D5-452D-8F89-E055C8C498A4}"
+```
+
+⇒ 在 Win8.1/10/11 上它绑的就是**系统自带的 WinUSB**，正好是 WebUSB 要的；
+本机的绑定就是它（§22.2：`oem242.inf` = `SIRD.inf`）。
+
+### 27.3 网页端定稿：驱动只留**一个按钮**
+
+按用户要求，把所有花活删掉：
+
+* 删掉 `irm … | iex` 一行命令、`copyCmd()`、命令展示框、自制 INF 的下载项；
+  也放弃了"打包 ZIP（签名驱动 + 本地脚本）"的方案；
+* 「找不到设备？」里现在**只有一个按钮**：**点击下载原厂驱动安装包（`Sony_IR_driver_EP0000311568.exe`，10.5 MB）**，
+  描述只说"装完拔插一次、刷新页面再点连接"；
+* 打包时不再复制 `install-winusb.ps1/.bat/vgp-urm10-winusb.inf`（它们对新用户只会帮倒忙）。
+
+即：**官方签名 = 唯一可靠路径**；自制 INF 只有在你把签名强制关掉或用 Zadig 时才有意义。
+
+

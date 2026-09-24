@@ -190,18 +190,14 @@
               padding:18px 20px; max-width:580px; box-shadow:0 12px 48px #000c;">
     <h2 style="margin:0 0 10px; color:var(--acc);">浏览器里看不到适配器？</h2>
     <div style="font-size:12.5px; line-height:1.75;">
-      WebUSB 要求设备被 Windows <b>自带的通用驱动 WinUSB</b> 接管。
-      本机若装过 Sony 的驱动包就没问题；<b>干净的 Windows</b> 需要装一次下面任意一个
-      （都不含厂商内核驱动，只是复用系统自带的 <code>winusb.sys</code>）：
+      先装一次 Sony 原厂驱动安装包，它会把适配器交给系统自带的 <b>WinUSB</b> 通用驱动 ——
+      WebUSB 才能看到它（装过的机器不用再装）。
     </div>
     <div class="row" style="margin-top:12px;">
-      <button class="go" onclick="copyCmd()">① 复制安装命令</button>
-      <button onclick="download('Sony_IR_driver_EP0000311568.exe')">② 下载完整包（10MB · Sony 原厂）</button>
+      <button class="go" onclick="download('Sony_IR_driver_EP0000311568.exe')">点击下载原厂驱动安装包（10.5 MB）</button>
     </div>
-    <div id="dlgCmd" style="display:none; margin-top:6px; background:#0d1116; border:1px solid var(--line);
-         border-radius:6px; padding:7px 9px; font-size:11.5px; word-break:break-all;"></div>
     <div class="hint" style="margin-top:10px;">
-      命令贴进 PowerShell 回车（会自己申请管理员权限）。装完把适配器<b>拔插一次</b>，刷新本页再点「连接设备」。<br>
+      下载后运行它、按提示装完，把适配器<b>拔插一次</b>，刷新本页再点「连接设备」。<br>
       验证：<code>Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Enum\USB\VID_054C&PID_0883\*' | Select Service</code>
       → 应显示 <code>Service : WINUSB</code>
     </div>
@@ -244,7 +240,7 @@ function setState(t,ok){ $("state").textContent=t; $("state").className="pill "+
    回报失败不影响使用：没有那个接口就静默忽略。
    ★ 托管到 GitHub Pages 之类的静态站点时**不发回报**（那边没有 /__report 接口，
      发了只会在控制台刷 404），只在本地服务器上开。 */
-const VER = "2026-09-24i · 打包准备：静态托管友好（回报只在本地开）+ 手机 viewport + 内联图标";
+const VER = "2026-09-24j · 驱动只留一个按钮（下载原厂安装包）；删掉 irm 一行命令 + 自制 INF（x64 拒签）";
 const REPORT_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname) ||
                      location.protocol === "file:";
 let REPORT_OK = true;
@@ -1148,14 +1144,12 @@ async function disconnect(){
 }
 
 /* ---------------- 找不到设备？ ---------------- */
+/* 只有一条路：下载 Sony 原厂驱动安装包。
+   （曾经试过"一行命令 irm|iex 装自制 INF"，实测在 x64 上被拒：
+     第三方 INF 不包含数字签名信息 → pnputil 直接失败。
+     原厂包是 WHQL 签名的，而且它在 Win8.1+ 上绑的就是 WinUSB，所以只留它。）*/
 function download(n){ const a=document.createElement("a"); a.href=n; a.download=n;
   document.body.appendChild(a); a.click(); a.remove(); log("sys","开始下载 " + n); }
-async function copyCmd(){
-  const url = new URL("install-winusb.ps1", document.location.href).href;
-  const c = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:VGP_URL=\'' + url + '\'; irm $env:VGP_URL | iex"';
-  const el=$("dlgCmd"); el.textContent=c; el.style.display="block";
-  try{ await navigator.clipboard.writeText(c); log("sys","安装命令已复制"); }catch(e){ log("sys","请手动复制命令"); }
-}
 function showHelp(){
   $("help").style.display="flex";
   navigator.usb.getDevices().then(l=>{

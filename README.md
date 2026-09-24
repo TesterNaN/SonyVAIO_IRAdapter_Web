@@ -9,11 +9,15 @@ UEI QuickSet 数据库里导出来的（3661 个码表编号）。
 1. **必须用 Chrome 或 Edge**（WebUSB 只有它们认），并且必须是 **https 或 localhost**：
    - 托管在 GitHub Pages 上时打开 `https://<你的用户名>.github.io/<仓库名>/` 即可；
    - 本机也可以用 `python -m http.server` 起一个，然后开 `http://localhost:8000/`。
-2. **Windows 需要一次驱动绑定**：WebUSB 要求设备由系统自带的通用驱动 `winusb.sys` 接管。
-   - 点页面右上角「找不到设备？」→「复制安装命令」，把命令贴进 PowerShell 回车（会自己申请管理员权限）；
-   - 装完**把适配器拔插一次**，刷新页面，点「连接设备」；
+2. **Windows 需要装一次 Sony 原厂驱动安装包**：WebUSB 要求设备由系统自带的通用驱动
+   `winusb.sys` 接管，而这个设备没有在描述符里自我声明 WinUSB，所以干净的 Windows 不会自动绑定。
+   - 点页面右上角「找不到设备？」→ 点那个按钮下载 `Sony_IR_driver_EP0000311568.exe`，
+     运行它、按提示装完；
+   - 把适配器**拔插一次**，刷新页面，点「连接设备」；
    - 验证：`Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Enum\USB\VID_054C&PID_0883\*' | Select Service`
      应显示 `Service : WINUSB`。
+   - 为什么不用自制 INF：x64 Windows 会拒（"第三方 INF 不包含数字签名信息"），
+     原厂包的 `sird.cat` 是 WHQL 签名的，而且在 Win8.1+ 上绑的正是 WinUSB。
 3. 页面上选一台遥控器（左边可按品牌/型号搜码库并「装机到设备」），右边直接按。
 
 ## 注意
