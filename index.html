@@ -185,9 +185,29 @@
     <div class="hint" id="lastSent" style="margin-top:8px">—</div>
   </div>
 
-  <!-- 右：日志 -->
+  <!-- 右：接收/学习 + 日志 -->
   <div class="panel">
-    <h2>USB 日志</h2>
+    <h2>⑤ 接收 / 学习（双机对拍用）</h2>
+    <div class="hint" style="margin-bottom:6px;">
+      让<b>另一个红外头</b>发过来的码被这个头收下：先点「进入学习模式」，再从另一台机器
+      （手机 / 另一台电脑 / 另一个适配器）发射。协议见报告 §12.2、§14.3，已在真机跑通。<br>
+      <b>★ 读一个槽位就会把它清空</b>（官方应用也是这么取码的），所以收到就存下来。
+    </div>
+    <div class="row">
+      <button id="btnLearn" disabled>① 进入学习模式</button>
+      <button id="btnScanSlots" disabled>② 扫一遍槽位</button>
+      <button id="btnWaitCode" disabled>③ 一直等（收到就停）</button>
+    </div>
+    <div class="row">
+      <label>槽位</label><input id="slotFrom" value="0" style="width:44px">
+      <label>–</label><input id="slotTo" value="15" style="width:44px">
+      <button id="btnCopyCap" disabled>复制捕获结果</button>
+      <button id="btnClearCap" disabled>清空捕获列表</button>
+    </div>
+    <div id="caps" style="max-height:190px; overflow:auto; white-space:pre-wrap; font-family:Consolas,monospace;
+         font-size:11.5px; color:var(--dim); margin-top:6px;">（还没收到任何码）</div>
+
+    <h2 style="margin-top:12px">USB 日志</h2>
     <div class="row">
       <button id="btnClearLog">清空</button>
       <button id="btnCopyLog">复制日志</button>
@@ -258,7 +278,7 @@ function setState(t,ok){ $("state").textContent=t; $("state").className="pill "+
    回报失败不影响使用：没有那个接口就静默忽略。
    ★ 托管到 GitHub Pages 之类的静态站点时**不发回报**（那边没有 /__report 接口，
      发了只会在控制台刷 404），只在本地服务器上开。 */
-const VER = "2026-09-24k · 手机版：把遥控器提到最前 + 横向滚动让键有手指大小；说明安卓免驱动";
+const VER = "2026-09-24m · 新增 ⑤ 接收/学习面板（学习模式 + 槽位扫描 + 一直等 + 捕获列表）供双机对拍";
 const REPORT_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname) ||
                      location.protocol === "file:";
 let REPORT_OK = true;
@@ -755,7 +775,8 @@ async function openDevice(d){
     const eps = d.configuration.interfaces[0].alternate.endpoints;
     ep = {in:null, out:null};
     for (const e of eps){ if (e.direction==="in") ep.in=e.endpointNumber; else ep.out=e.endpointNumber; }
-    ["btnProfiles","btnKeys","btnDel","btnClearAll","btnRaw","btnKeys2","btnDel2","btnDisconnect","btnProbe","btnBurst"]
+    ["btnProfiles","btnKeys","btnDel","btnClearAll","btnRaw","btnKeys2","btnDel2","btnDisconnect","btnProbe","btnBurst",
+     "btnLearn","btnScanSlots","btnWaitCode","btnCopyCap","btnClearCap"]
       .forEach(id=>{ if ($(id)) $(id).disabled=false; });
     report("connected", {product:d.productName});
     log("sys","已连接 " + d.productName + "  IN=0x" + Number(ep.in).toString(16) + " OUT=0x" + Number(ep.out).toString(16));
@@ -1155,12 +1176,90 @@ async function disconnect(){
   try{ if (dev){ try{ await dev.releaseInterface(0); }catch(e){} await dev.close(); } }catch(e){}
   dev=null; ep={in:null,out:null}; profiles=[]; curProfile=null; KEYSET=new Set();
   document.querySelectorAll("button").forEach(b=>{});
-  ["btnProfiles","btnKeys","btnDel","btnClearAll","btnRaw","btnDisconnect","btnKeys2","btnDel2","btnProbe","btnBurst"]
+  ["btnProfiles","btnKeys","btnDel","btnClearAll","btnRaw","btnDisconnect","btnKeys2","btnDel2","btnProbe","btnBurst",
+   "btnLearn","btnScanSlots","btnWaitCode","btnCopyCap","btnClearCap"]
     .forEach(id=>{ if ($(id)) $(id).disabled=true; });
   setState("已断开", false); renderRemote();
   log("sys","已释放设备（Python 工具现在可以用它）");
 }
 
+/* ---------------- ⑤ 接收 / 学习（双机对拍）----------------
+   协议（报告 §12.2 / §14.3，都在真机上跑通过）：
+     进入学习模式  OUT 00 → 00 40414243 0003 0C 48 90     → 回 01 01（两个参数字不被校验）
+     轮询取码      OUT 00 → 00 40414243 0003 12 00 <槽位>  → [len] 00 01 <码数据>
+                    len = 2 + 码长；空槽位回 01 06 或干脆不回；★ 读出即清空槽位 ★
+   所以"一直等"就是反复轮询这些槽位，直到某个槽位吐出数据。
+   ★ 轮询空槽位本来就可能没回应 —— 用 quiet=false，免得每次都强制静默 0.8 秒把扫描拖成龟速。 */
+const CAPS = [];
+let waiting = false;
+/* 槽位回应可能是"有码"，也可能是 2 字节的状态（01 06 = 空槽）——两种都收，再自己分类 */
+const expectSlot = r => !!r && ((r.length >= 4 && r[1] === 0x00 && r[2] === 0x01) ||
+                                (r.length === 2 && r[0] === 0x01));
+const hexBytes = a => Array.from(a).map(b => b.toString(16).padStart(2,"0")).join(" ");
+async function learnMode(){
+  const r = await cmd(frameOf([0x0c,0x48,0x90]), 1500);
+  log("sys","已请求进入学习模式：" + (r ? hex(r) : "无回应") + "（回 01 01 属于正常：这两个参数字不被校验）");
+  report("learnmode", {reply: r ? hex(r) : null});
+}
+async function scanSlots(from, to, quiet){
+  const found = [];
+  for (let s = from; s <= to; s++){
+    const r = await cmd(frameOf([0x12,0x00,s]), 600, expectSlot, false);
+    if (r && r.length >= 4 && r[1] === 0x00 && r[2] === 0x01){
+      const data = r.slice(3);
+      const want = r[0] - 2;
+      const hexs = hexBytes(data);
+      found.push({slot:s, len:data.length, hex:hexs, at:new Date().toLocaleTimeString()});
+      log("rx","★ 槽位 " + s + " 取到 " + data.length + " 字节" +
+          (want === data.length ? "" : "（声明长度说应该是 " + want + "，不符）") + "：" + hexs);
+      report("capture", {slot:s, len:data.length, hex:hexs});
+    } else if (!quiet && r && r.length === 2){
+      /* 01 06 = 空槽位；其它 2 字节状态也顺手说一声 */
+      if (r[1] !== 0x06) log("sys","槽位 " + s + " 回 " + hex(r));
+    }
+  }
+  if (found.length){ CAPS.push(...found); renderCaps(); }
+  else if (!quiet) log("sys","槽位 " + from + "–" + to + " 都没有码（没收到东西）");
+  return found;
+}
+function renderCaps(){
+  const el = $("caps");
+  if (!CAPS.length){ el.textContent = "（还没收到任何码）"; return; }
+  el.innerHTML = CAPS.map((c, i) =>
+      '<div style="border-top:1px solid #202833; padding:3px 0;">'
+      + '<b style="color:var(--ok)">#' + (i+1) + '</b> ' + c.at + '　槽位 ' + c.slot
+      + '　<b>' + c.len + '</b> 字节<br><span style="color:#9fb0c4">' + c.hex + '</span></div>').join("");
+}
+async function waitCode(){
+  if (waiting){ waiting = false; log("sys","停止等待"); $("btnWaitCode").textContent = "③ 一直等（收到就停）"; return; }
+  if (!dev){ log("err","先连接设备"); return; }
+  const from = Math.max(0, parseInt($("slotFrom").value, 10) || 0);
+  const to = Math.min(255, parseInt($("slotTo").value, 10) || 0);
+  waiting = true; $("btnWaitCode").textContent = "停止等待";
+  log("sys","开始等待：反复轮询槽位 " + from + "–" + to + "，另一台机器现在发射就行了…");
+  const t0 = performance.now();
+  let rounds = 0;
+  try{
+    while (waiting){
+      rounds++;
+      const got = await scanSlots(from, to, true);
+      if (got.length){
+        log("sys","收到码了 —— 第 " + rounds + " 轮，槽位 " + got.map(g=>g.slot).join(","));
+        break;
+      }
+      if (performance.now() - t0 > 120000){ log("sys","等了两分钟没收到，先停下（可以再看一遍槽位或确认对头位置）"); break; }
+      await sleep(120);
+    }
+  } finally {
+    waiting = false; $("btnWaitCode").textContent = "③ 一直等（收到就停）";
+  }
+}
+async function copyCaps(){
+  const txt = CAPS.map(c => "槽位" + c.slot + " " + c.len + "B " + c.hex).join("\n");
+  if (!txt){ log("sys","没有捕获结果可复制"); return; }
+  try{ await navigator.clipboard.writeText(txt); log("sys","已复制 " + CAPS.length + " 条捕获结果"); }
+  catch(e){ log("sys","复制失败，请手动从下面的列表里选：\n" + txt); }
+}
 /* ---------------- 找不到设备？ ---------------- */
 /* 只有一条路：下载 Sony 原厂驱动安装包。
    （曾经试过"一行命令 irm|iex 装自制 INF"，实测在 x64 上被拒：
@@ -1223,6 +1322,16 @@ $("btnConnect").onclick=guard(connect,"连接设备");
 $("btnProfiles").onclick=guard(readProfiles,"读 profile");
 $("btnProbe").onclick=guard(()=>probeKeys(48),"探测可用键号");
 $("btnBurst").onclick=guard(()=>burstTest(8),"连击自检");
+$("btnLearn").onclick=guard(learnMode,"进入学习模式");
+$("btnScanSlots").onclick=guard(async ()=>{
+  const from = Math.max(0, parseInt($("slotFrom").value,10) || 0);
+  const to = Math.min(255, parseInt($("slotTo").value,10) || 0);
+  log("sys","扫描槽位 " + from + "–" + to + "（约 " + Math.ceil((to-from+1)*0.75) + " 秒；读过的槽位会被清空）…");
+  await scanSlots(from, to, false);
+},"扫一遍槽位");
+$("btnWaitCode").onclick=guard(waitCode,"一直等");
+$("btnCopyCap").onclick=guard(copyCaps,"复制捕获结果");
+$("btnClearCap").onclick=guard(()=>{ CAPS.length = 0; renderCaps(); log("sys","捕获列表已清空"); },"清空捕获列表");
 $("btnDisconnect").onclick=guard(disconnect,"断开");
 $("btnSearch").onclick=guard(search,"搜索");
 $("btnInstall").onclick=guard(install,"装机");
