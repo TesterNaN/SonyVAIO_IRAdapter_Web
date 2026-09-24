@@ -1,0 +1,17 @@
+{
+ "entries": 31876,
+ "unique_blobs": 11643,
+ "blob_bytes": 1386996,
+ "types": [
+  "Amplifier",
+  "CD",
+  "Cable, IPTV",
+  "DVD",
+  "Home Control",
+  "Receiver, Misc Audio",
+  "Satellite/DSS",
+  "TV",
+  "VCR",
+  "Video Accessory"
+ ]
+}

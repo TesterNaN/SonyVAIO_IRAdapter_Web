@@ -1,0 +1,1115 @@
+{
+ "source": "FullControlPage.xbf -> XAML (v1)",
+ "canvas_rows": 69,
+ "canvas_cols": 45,
+ "buttons": [
+  {
+   "key": 2,
+   "name": "location02",
+   "row": 0,
+   "col": null,
+   "rowspan": 2,
+   "colspan": 1,
+   "style": "InsideUpButtonStyle",
+   "label": "",
+   "px": [
+    335,
+    514,
+    196,
+    224
+   ]
+  },
+  {
+   "key": 3,
+   "name": "location03",
+   "row": 2,
+   "col": null,
+   "rowspan": 2,
+   "colspan": 1,
+   "style": "InsideDownButtonStyle",
+   "label": "音量",
+   "px": [
+    335,
+    738,
+    196,
+    224
+   ]
+  },
+  {
+   "key": 4,
+   "name": "location04",
+   "row": 4,
+   "col": null,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "静音",
+   "px": [
+    335,
+    962,
+    196,
+    112
+   ]
+  },
+  {
+   "key": 5,
+   "name": "location05",
+   "row": 0,
+   "col": null,
+   "rowspan": 2,
+   "colspan": 1,
+   "style": "InsideUpButtonStyle",
+   "label": "",
+   "px": [
+    531,
+    514,
+    196,
+    224
+   ]
+  },
+  {
+   "key": 6,
+   "name": "location06",
+   "row": 2,
+   "col": null,
+   "rowspan": 2,
+   "colspan": 1,
+   "style": "InsideDownButtonStyle",
+   "label": "PROG",
+   "px": [
+    531,
+    738,
+    196,
+    224
+   ]
+  },
+  {
+   "key": 7,
+   "name": "location07",
+   "row": 4,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "输入",
+   "px": [
+    531,
+    962,
+    196,
+    112
+   ]
+  },
+  {
+   "key": 8,
+   "name": "location08",
+   "row": 1,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "",
+   "px": [
+    857,
+    626,
+    132,
+    112
+   ]
+  },
+  {
+   "key": 9,
+   "name": "location09",
+   "row": 3,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "",
+   "px": [
+    857,
+    850,
+    132,
+    112
+   ]
+  },
+  {
+   "key": 10,
+   "name": "location10",
+   "row": 2,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    727,
+    738,
+    130,
+    112
+   ]
+  },
+  {
+   "key": 11,
+   "name": "location11",
+   "row": 2,
+   "col": 5,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    989,
+    738,
+    130,
+    112
+   ]
+  },
+  {
+   "key": 12,
+   "name": "location12",
+   "row": 2,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "",
+   "px": [
+    857,
+    738,
+    132,
+    112
+   ]
+  },
+  {
+   "key": 13,
+   "name": "location13",
+   "row": null,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "指南",
+   "px": [
+    727,
+    514,
+    196,
+    112
+   ]
+  },
+  {
+   "key": 14,
+   "name": "location14",
+   "row": null,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "主页",
+   "px": [
+    923,
+    514,
+    196,
+    112
+   ]
+  },
+  {
+   "key": 15,
+   "name": "location15",
+   "row": 4,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "返回",
+   "px": [
+    727,
+    962,
+    196,
+    112
+   ]
+  },
+  {
+   "key": 16,
+   "name": "location16",
+   "row": 4,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "选项",
+   "px": [
+    923,
+    962,
+    196,
+    112
+   ]
+  },
+  {
+   "key": 17,
+   "name": "location17",
+   "row": 0,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "DigitalButtonStyle",
+   "label": ""
+  },
+  {
+   "key": 18,
+   "name": "location18",
+   "row": 0,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "DigitalButtonStyle",
+   "label": ""
+  },
+  {
+   "key": 19,
+   "name": "location19",
+   "row": 0,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "DigitalButtonStyle",
+   "label": ""
+  },
+  {
+   "key": 20,
+   "name": "location20",
+   "row": 1,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "1",
+   "px": [
+    1119,
+    626,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 21,
+   "name": "location21",
+   "row": 1,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "2",
+   "px": [
+    1231,
+    626,
+    111,
+    112
+   ]
+  },
+  {
+   "key": 22,
+   "name": "location22",
+   "row": 1,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "3",
+   "px": [
+    1343,
+    626,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 23,
+   "name": "location23",
+   "row": 2,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "4",
+   "px": [
+    1119,
+    738,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 24,
+   "name": "location24",
+   "row": 2,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "5",
+   "px": [
+    1231,
+    738,
+    111,
+    112
+   ]
+  },
+  {
+   "key": 25,
+   "name": "location25",
+   "row": 2,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "6",
+   "px": [
+    1343,
+    738,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 26,
+   "name": "location26",
+   "row": 3,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "7",
+   "px": [
+    1119,
+    850,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 27,
+   "name": "location27",
+   "row": 3,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "8",
+   "px": [
+    1231,
+    850,
+    111,
+    112
+   ]
+  },
+  {
+   "key": 28,
+   "name": "location28",
+   "row": 3,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "9",
+   "px": [
+    1343,
+    850,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 29,
+   "name": "location29",
+   "row": 4,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "-/--",
+   "px": [
+    1119,
+    962,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 30,
+   "name": "location30",
+   "row": 4,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "0",
+   "px": [
+    1231,
+    962,
+    111,
+    112
+   ]
+  },
+  {
+   "key": 31,
+   "name": "location31",
+   "row": 4,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "确定",
+   "px": [
+    1343,
+    962,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 32,
+   "name": "location32",
+   "row": 0,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "BlueColorButtonStyle",
+   "label": "",
+   "px": [
+    1455,
+    514,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 33,
+   "name": "location33",
+   "row": 0,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "RedColorButtonStyle",
+   "label": "",
+   "px": [
+    1567,
+    514,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 34,
+   "name": "location34",
+   "row": 0,
+   "col": 5,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "GreenColorButtonStyle",
+   "label": "",
+   "px": [
+    1679,
+    514,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 35,
+   "name": "location35",
+   "row": 0,
+   "col": 6,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": "YellowColorButtonStyle",
+   "label": "",
+   "px": [
+    1791,
+    514,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 36,
+   "name": "location36",
+   "row": 1,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    1455,
+    626,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 37,
+   "name": "location37",
+   "row": 1,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 38,
+   "name": "location38",
+   "row": 1,
+   "col": 5,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 39,
+   "name": "location39",
+   "row": 1,
+   "col": 6,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    1791,
+    626,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 40,
+   "name": "location40",
+   "row": 2,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    1455,
+    738,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 41,
+   "name": "location41",
+   "row": 2,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "",
+   "px": [
+    1567,
+    738,
+    224,
+    112
+   ]
+  },
+  {
+   "key": 42,
+   "name": "location42",
+   "row": 2,
+   "col": 6,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    1791,
+    738,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 43,
+   "name": "location43",
+   "row": 3,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 44,
+   "name": "location44",
+   "row": 3,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 2,
+   "style": null,
+   "label": "",
+   "px": [
+    1567,
+    850,
+    224,
+    112
+   ]
+  },
+  {
+   "key": 45,
+   "name": "location45",
+   "row": 3,
+   "col": 6,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "",
+   "px": [
+    1791,
+    850,
+    112,
+    112
+   ]
+  },
+  {
+   "key": 46,
+   "name": "location46",
+   "row": 4,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 47,
+   "name": "location47",
+   "row": 4,
+   "col": 4,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 48,
+   "name": "location48",
+   "row": 4,
+   "col": 5,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 49,
+   "name": "location49",
+   "row": 4,
+   "col": 6,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 50,
+   "name": "location50",
+   "row": 0,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "收藏夹"
+  },
+  {
+   "key": 51,
+   "name": "location51",
+   "row": 0,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "跳转"
+  },
+  {
+   "key": 52,
+   "name": "location52",
+   "row": 0,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "显示"
+  },
+  {
+   "key": 53,
+   "name": "location53",
+   "row": 0,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "同步菜单"
+  },
+  {
+   "key": 54,
+   "name": "location54",
+   "row": 1,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "字幕"
+  },
+  {
+   "key": 55,
+   "name": "location55",
+   "row": 1,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "PIP"
+  },
+  {
+   "key": 56,
+   "name": "location56",
+   "row": 1,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "场景"
+  },
+  {
+   "key": 57,
+   "name": "location57",
+   "row": 1,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "剧院"
+  },
+  {
+   "key": 58,
+   "name": "location58",
+   "row": 2,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "宽"
+  },
+  {
+   "key": 59,
+   "name": "location59",
+   "row": 2,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "小部件"
+  },
+  {
+   "key": 60,
+   "name": "location60",
+   "row": 2,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "Web 视频"
+  },
+  {
+   "key": 61,
+   "name": "location61",
+   "row": 2,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "音频"
+  },
+  {
+   "key": 62,
+   "name": "location62",
+   "row": 3,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "i-Manual"
+  },
+  {
+   "key": 63,
+   "name": "location63",
+   "row": 3,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "3D"
+  },
+  {
+   "key": 64,
+   "name": "location64",
+   "row": 3,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "文本"
+  },
+  {
+   "key": 65,
+   "name": "location65",
+   "row": 3,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "退出"
+  },
+  {
+   "key": 66,
+   "name": "location66",
+   "row": 4,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "数字"
+  },
+  {
+   "key": 67,
+   "name": "location67",
+   "row": 4,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "模拟"
+  },
+  {
+   "key": 68,
+   "name": "location68",
+   "row": 4,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 69,
+   "name": "location69",
+   "row": 4,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 70,
+   "name": "location70",
+   "row": 0,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "HDMI1"
+  },
+  {
+   "key": 71,
+   "name": "location71",
+   "row": 0,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "HDMI2"
+  },
+  {
+   "key": 72,
+   "name": "location72",
+   "row": 0,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "HDMI3"
+  },
+  {
+   "key": 73,
+   "name": "location73",
+   "row": 0,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 74,
+   "name": "location74",
+   "row": 1,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "视频1"
+  },
+  {
+   "key": 75,
+   "name": "location75",
+   "row": 1,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "视频2"
+  },
+  {
+   "key": 76,
+   "name": "location76",
+   "row": 1,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "视频3"
+  },
+  {
+   "key": 77,
+   "name": "location77",
+   "row": 1,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 78,
+   "name": "location78",
+   "row": 2,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "电脑"
+  },
+  {
+   "key": 79,
+   "name": "location79",
+   "row": 2,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "组件"
+  },
+  {
+   "key": 80,
+   "name": "location80",
+   "row": 2,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": "天线"
+  },
+  {
+   "key": 81,
+   "name": "location81",
+   "row": 2,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 82,
+   "name": "location82",
+   "row": 3,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 83,
+   "name": "location83",
+   "row": 3,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 84,
+   "name": "location84",
+   "row": 3,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 85,
+   "name": "location85",
+   "row": 3,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 86,
+   "name": "location86",
+   "row": 4,
+   "col": 0,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 87,
+   "name": "location87",
+   "row": 4,
+   "col": 1,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 88,
+   "name": "location88",
+   "row": 4,
+   "col": 2,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  },
+  {
+   "key": 89,
+   "name": "location89",
+   "row": 4,
+   "col": 3,
+   "rowspan": 1,
+   "colspan": 1,
+   "style": null,
+   "label": ""
+  }
+ ]
+}

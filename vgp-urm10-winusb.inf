@@ -1,0 +1,54 @@
+; ============================================================================
+;  vgp-urm10-winusb.inf
+;  给 Sony VGP-URM10（VID_054C / PID_0883）绑定 Windows 自带的通用驱动 WinUSB。
+;
+;  用途：让浏览器（Chrome / Edge）能通过 WebUSB 访问这台红外适配器，
+;        也让我们自己的 Python 工具（WinUsb_* API）能打开它。
+;        效果等同于 Sony 原厂驱动包在 Win8.1+ 上的行为
+;        （原厂 SIRD.inf 的 [Standard.NTamd64.6.3] 段就是 Include=winusb.inf）。
+;
+;  安装（管理员）：
+;      pnputil /add-driver vgp-urm10-winusb.inf /install
+;    或者：设备管理器 → 右键设备 → 更新驱动程序 → 浏览到本目录
+;
+;  注意：
+;    * x64 Windows 对驱动有签名要求；本 INF 没有 .cat 签名，安装时可能被拒。
+;      最省事的替代方案就是装 Sony 原厂驱动包（EP0000311568.exe），
+;      它在 Win8.1+ 上同样会绑到 WinUSB。
+;    * 本 INF 不会加载任何厂商内核驱动（不需要 SIRD.sys）。
+; ============================================================================
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = USBDevice
+ClassGuid   = {88bae032-5a81-49f0-bc3d-a4ff138216d6}      ; WinUSB 设备类
+Provider    = %ProviderName%
+DriverVer   = 09/23/2026,1.0.0.0
+; CatalogFile = vgp-urm10-winusb.cat                        ; 有签名时取消注释
+
+[Manufacturer]
+%ProviderName% = Standard, NTamd64
+
+[Standard.NTamd64]
+%DeviceName% = USB_Install, USB\VID_054C&PID_0883
+
+; ---- 用通用 WinUSB 驱动（不装任何厂商内核驱动）----
+[USB_Install]
+Include = winusb.inf
+Needs   = WINUSB.NT
+
+[USB_Install.Services]
+Include = winusb.inf
+Needs   = WINUSB.NT.Services
+
+; ---- 注册设备接口 GUID（可选；方便应用按 GUID 枚举）----
+[USB_Install.HW]
+AddReg = Dev_AddReg
+
+[Dev_AddReg]
+; 沿用 Sony 原厂 INF 注册的那个接口 GUID，这样原有工具无需改动
+HKR,,DeviceInterfaceGUIDs,0x10000,"{AC2C0F91-97D5-452D-8F89-E055C8C498A4}"
+
+[Strings]
+ProviderName = "VGP-URM10 (WinUSB)"
+DeviceName   = "Sony VGP-URM10 USB IR Adapter (WinUSB)"

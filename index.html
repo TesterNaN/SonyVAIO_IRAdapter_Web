@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sony VGP-URM10 红外适配器的纯 WebUSB 万能遥控器（含 UEI QuickSet 码库）">
+<!-- 自带的图标用内联 SVG，免得托管到 GitHub Pages 后 favicon.ico 404 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171d26'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23ef6b6b'/%3E%3Cpath d='M6 12a14 14 0 0 1 0 8M26 12a14 14 0 0 0 0 8' stroke='%234ea1ff' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>VGP-URM10 · 万能红外遥控器（纯 WebUSB）</title>
+<style>
+  :root { --bg:#0f1319; --panel:#171d26; --panel2:#1d2530; --line:#29323f; --fg:#dfe6ef;
+          --dim:#7b8899; --ok:#3ecf8e; --warn:#e8b64c; --bad:#ef6b6b; --acc:#4ea1ff;
+          --blue:#3b6fd4; --red:#c0392b; --green:#2e8b57; --yellow:#c9a227; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.6 "Microsoft YaHei",Consolas,monospace; }
+  header { padding:9px 16px; background:var(--panel); border-bottom:1px solid var(--line);
+           display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:15px; margin:0; font-weight:600; }
+  .pill { padding:2px 9px; border-radius:10px; background:#222b36; font-size:12px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+  .hint { color:var(--dim); font-size:11px; line-height:1.7; }
+  .wrap { display:grid; grid-template-columns: 360px minmax(420px,1fr) 380px; gap:12px; padding:12px; }
+  @media (max-width:1200px) { .wrap { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px; }
+  .panel h2 { font-size:13px; margin:0 0 8px; color:var(--acc); font-weight:600; }
+  button { background:#26303d; color:var(--fg); border:1px solid var(--line); border-radius:6px;
+           padding:5px 10px; cursor:pointer; font-family:inherit; font-size:12px; }
+  button:hover { background:#31404f; }
+  button.go { background:#1d4e7a; border-color:#2a6ba5; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  input, select { background:#0d1116; color:var(--fg); border:1px solid var(--line);
+                  border-radius:6px; padding:4px 7px; font-family:inherit; font-size:12px; }
+  label { color:var(--dim); font-size:12px; }
+  .row { display:flex; gap:6px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+  #list { height:190px; overflow:auto; background:#0d1116; border:1px solid var(--line); border-radius:6px; }
+  #list div { padding:3px 7px; cursor:pointer; border-bottom:1px solid #161c24; font-size:12px; }
+  #list div:hover { background:#182028; }
+  #list div.sel { background:#1d4e7a; }
+  #log { height:340px; overflow:auto; background:#0d1116; border:1px solid var(--line);
+         border-radius:6px; padding:6px; font-size:11.5px; }
+  #log div { white-space:pre-wrap; word-break:break-all; }
+  .t { color:#5a6572; } .tx { color:var(--acc); } .rx { color:var(--ok); }
+  .sys { color:var(--warn); } .err { color:var(--bad); }
+
+  /* ================= 遥控器 ================= */
+  .remote { background:linear-gradient(180deg,#202833,#161c24); border:1px solid var(--line);
+            border-radius:14px; padding:12px; }
+  .rTop { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .rTitle { font-size:13px; color:var(--dim); }
+  .pwr { width:54px; height:36px; border-radius:9px; background:#5a2330; border:1px solid #8a3a49;
+         color:#ffd9df; font-weight:700; font-size:12px; }
+  .pwr:hover { background:#732c3c; }
+  .clusters { display:flex; flex-direction:column; gap:9px; }
+  /* 官方版面画布：1568x700 的实测坐标，等比缩放铺满面板宽度 */
+  .canvas { position:relative; width:100%; aspect-ratio:1568 / 700; }
+  .keywrap { position:absolute; }
+  .keywrap > .key { position:absolute; inset:2px; min-height:0; }
+  .key.off { opacity:.22; cursor:not-allowed; }
+  .key.off:hover { background:#2a3340; border-color:#36414f; }
+  .cl { border-top:1px solid #202833; padding-top:8px; }
+  .clTitle { font-size:11px; color:#5f6c7c; margin:0 0 5px 2px; }
+  .grid { display:grid; gap:5px; }
+  .key { position:relative; display:flex; align-items:center; justify-content:center;
+         background:#2a3340; border:1px solid #36414f; border-radius:8px; cursor:pointer;
+         font-size:12px; min-height:34px; padding:3px 2px; text-align:center; user-select:none;
+         transition:transform .04s, background .1s; overflow:hidden; }
+  .key:hover { background:#35414f; border-color:var(--acc); }
+  .key:active, .key.on { transform:scale(.96); background:#1d5c43; border-color:var(--ok); }
+  .key b { font-weight:600; }
+  .key i { position:absolute; right:3px; bottom:1px; font-size:9px; color:#5f6c7c; font-style:normal; }
+  .key.wide { grid-column:span 2; }
+  .key.nav { background:#242e3a; }
+  .key.ok { background:#2f5d3f; border-color:#3f7a53; }
+  .key.num { background:#2b3543; min-height:32px; }
+  .key.blue { background:var(--blue); border-color:#5b8bea; }
+  .key.red { background:var(--red); border-color:#e05a4a; }
+  .key.green { background:var(--green); border-color:#46a874; }
+  .key.yellow { background:var(--yellow); border-color:#e0be4a; color:#241f05; }
+  .key.extra { font-size:11px; min-height:30px; }
+  .empty { color:var(--dim); font-size:12px; padding:14px 4px; text-align:center; }
+  .hint.ok  { color:var(--ok); }
+  .hint.bad { color:var(--bad); font-weight:600; }
+  /* ---- 已装遥控器卡片（品牌 + 型号）---- */
+  #profRow { display:flex; align-items:flex-start; gap:6px; }
+  #profList { display:flex; flex-wrap:wrap; gap:6px; }
+  .profCard { display:flex; flex-direction:column; align-items:flex-start; gap:1px;
+              text-align:left; padding:6px 10px; line-height:1.35; max-width:190px;
+              background:#232c38; border:1px solid var(--line); border-radius:9px; }
+  .profCard b { font-size:12px; font-weight:600; }
+  .profCard i { font-size:10.5px; color:var(--dim); font-style:normal; }
+  .profCard.on { background:#1d5c43; border-color:var(--ok); }
+  .profCard.on i { color:#bdf0d8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VGP-URM10 万能红外遥控器</h1>
+  <span class="pill" id="state">未连接</span>
+  <span class="pill" id="lib">码库载入中…</span>
+  <span class="pill" id="prof">profile —</span>
+  <button id="btnHelp" title="浏览器里看不到适配器时点这里">找不到设备？</button>
+  <button id="btnDiag" title="一键检查：浏览器有没有 WebUSB、设备有没有被占用">自检</button>
+  <span class="hint">纯 WebUSB · Chrome/Edge · 设备被本页独占</span>
+</header>
+
+<div class="wrap">
+  <!-- 左：设备 + 码库 -->
+  <div class="panel">
+    <h2>① 设备</h2>
+    <div class="row">
+      <button class="go" id="btnConnect">连接设备</button>
+      <button id="btnDisconnect" disabled>断开</button>
+      <span class="hint" style="padding-top:6px;">连上后全自动：初始化 → 读出设备里已装的遥控器 → 直接渲染，不用再点别的</span>
+    </div>
+    <div class="hint" id="devInfo"></div>
+
+    <h2 style="margin-top:12px">② 找码表</h2>
+    <div class="row">
+      <select id="type" style="width:150px"></select>
+      <input id="brand" value="Sony" style="width:100px" placeholder="品牌">
+      <button id="btnSearch">搜索</button>
+    </div>
+    <div id="list"></div>
+    <div class="hint" id="selInfo">未选中码表</div>
+    <div class="hint" id="installMsg" style="display:none"></div>
+    <div class="row">
+      <button class="go" id="btnInstall" disabled>装机到设备</button>
+      <button id="btnKeys" disabled>读键表</button>
+      <button id="btnDel" disabled>删除该 profile</button>
+      <button id="btnClearAll" disabled>清空全部</button>
+    </div>
+
+    <h2 style="margin-top:12px">③ 高级</h2>
+    <div class="row">
+      <label>profile</label>
+      <input id="profile" value="" style="width:80px" placeholder="0x005A">
+      <button id="btnKeys2" disabled>读键表</button>
+      <button id="btnDel2" disabled>删除</button>
+      <button id="btnProfiles" disabled>重新读列表</button>
+      <button id="btnProbe" disabled>探测可用键号</button>
+      <button id="btnBurst" disabled>连击自检</button>
+    </div>
+    <div class="row">
+      <input id="rawHex" value="40414243000111" style="width:220px">
+      <button id="btnRaw" disabled>发原始帧</button>
+    </div>
+    <div class="hint">帧格式：magic | len | type | …　例：握手 <code>40414243000111</code>，
+      查键表 <code>40414243000302&lt;profile2B&gt;</code>，发射 <code>40414243000701&lt;profile2B&gt;&lt;键号&gt;800000</code></div>
+  </div>
+
+  <!-- 中：遥控器 -->
+  <div class="panel">
+    <h2>④ 遥控器（点一下 = 发射一次）</h2>
+    <div id="profRow" style="display:none;">
+      <span class="hint" style="padding-top:6px;">设备里已装的遥控器：</span>
+      <span id="profList"></span>
+    </div>
+    <div class="hint" id="keyInfo">点上面任意一台遥控器即可切换；左边选码表「装机到设备」会新增一台</div>
+    <label id="lblMissing" style="display:none; font-size:11.5px; color:var(--dim); margin:2px 0 0;">
+      <input type="checkbox" id="chkMissing" style="vertical-align:-2px;"> 显示这套码表里没有的键（灰色，不可点）
+    </label>
+    <div class="remote" id="remote" style="margin-top:8px;">
+      <div class="rTop">
+        <span class="rTitle" id="rTitle">—</span>
+        <button class="pwr" id="btnPower" disabled title="电源">电源</button>
+      </div>
+      <div class="clusters" id="clusters">
+        <div class="empty">还没有加载遥控器</div>
+      </div>
+    </div>
+    <div class="hint" id="lastSent" style="margin-top:8px">—</div>
+  </div>
+
+  <!-- 右：日志 -->
+  <div class="panel">
+    <h2>USB 日志</h2>
+    <div class="row">
+      <button id="btnClearLog">清空</button>
+      <button id="btnCopyLog">复制日志</button>
+      <span class="hint" id="logInfo"></span>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<!-- 找不到设备？ -->
+<div id="help" style="display:none; position:fixed; inset:0; background:#000b; z-index:9;
+     align-items:center; justify-content:center;">
+  <div style="background:var(--panel); border:1px solid var(--line); border-radius:12px;
+              padding:18px 20px; max-width:580px; box-shadow:0 12px 48px #000c;">
+    <h2 style="margin:0 0 10px; color:var(--acc);">浏览器里看不到适配器？</h2>
+    <div style="font-size:12.5px; line-height:1.75;">
+      WebUSB 要求设备被 Windows <b>自带的通用驱动 WinUSB</b> 接管。
+      本机若装过 Sony 的驱动包就没问题；<b>干净的 Windows</b> 需要装一次下面任意一个
+      （都不含厂商内核驱动，只是复用系统自带的 <code>winusb.sys</code>）：
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <button class="go" onclick="copyCmd()">① 复制安装命令</button>
+      <button onclick="download('Sony_IR_driver_EP0000311568.exe')">② 下载完整包（10MB · Sony 原厂）</button>
+    </div>
+    <div id="dlgCmd" style="display:none; margin-top:6px; background:#0d1116; border:1px solid var(--line);
+         border-radius:6px; padding:7px 9px; font-size:11.5px; word-break:break-all;"></div>
+    <div class="hint" style="margin-top:10px;">
+      命令贴进 PowerShell 回车（会自己申请管理员权限）。装完把适配器<b>拔插一次</b>，刷新本页再点「连接设备」。<br>
+      验证：<code>Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Enum\USB\VID_054C&PID_0883\*' | Select Service</code>
+      → 应显示 <code>Service : WINUSB</code>
+    </div>
+    <div class="hint" id="helpDiag" style="margin-top:8px; color:var(--warn);"></div>
+    <div class="row" style="margin-top:12px; justify-content:flex-end;">
+      <button onclick="hideHelp()">知道了</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const MAGIC = [0x40,0x41,0x42,0x43];
+const TYPE_NAMES = { "TV":"电视", "Cable, IPTV":"有线/IPTV", "Video Accessory":"视频配件",
+  "Satellite/DSS":"卫星", "VCR":"录像机", "DVD":"DVD", "Receiver, Misc Audio":"功放/音频",
+  "Amplifier":"放大器", "CD":"CD", "Home Control":"家居控制" };
+
+let dev=null, rxQueue=[], reading=false, ep={in:null,out:null};
+/* ★ 接收帧的"绝对序号"。rxQueue 只留最近 400 帧（旧的会被 shift 掉），
+   所以等待回应时不能拿 rxQueue.length 当基准（一 shift 就错位），必须用绝对序号。
+   旧代码用的是「数组长度变大了就认为来了新帧」，而且取的是最后一条：
+   连击时会拿到别人的回应、或者永远等不到 → 假"无回应"。*/
+let rxCount = 0;
+const RXKEEP = 400;
+function rxPush(u8){ rxQueue.push(u8); rxCount++; while (rxQueue.length > RXKEEP) rxQueue.shift(); }
+function rxAt(n){ const base = rxCount - rxQueue.length; return (n >= base && n < rxCount) ? rxQueue[n - base] : undefined; }
+let INDEX=[], BLOBS=null, selected=null, profiles=[], curProfile=null, KEYSET=new Set();
+let LABELS={}, EXTRA={};
+
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const hex = u8 => Array.from(u8).map(b=>b.toString(16).padStart(2,"0")).join(" ");
+const fromHex = s => new Uint8Array(s.replace(/[^0-9a-fA-F]/g,"").match(/../g).map(h=>parseInt(h,16)));
+const $ = id => document.getElementById(id);
+function log(k,m){ const el=$("log"), d=document.createElement("div");
+  d.innerHTML='<span class="t">'+new Date().toLocaleTimeString()+'</span> <span class="'+k+'">'+
+    k.toUpperCase()+'</span> '+m; el.appendChild(d); el.scrollTop=el.scrollHeight;
+  $("logInfo").textContent = el.childElementCount + " 条"; }
+function setState(t,ok){ $("state").textContent=t; $("state").className="pill "+(ok?"ok":"bad"); }
+/* ---------- 版本号 + 把浏览器里看到的情况回报到本地服务（_report.jsonl）----------
+   回报失败不影响使用：没有那个接口就静默忽略。
+   ★ 托管到 GitHub Pages 之类的静态站点时**不发回报**（那边没有 /__report 接口，
+     发了只会在控制台刷 404），只在本地服务器上开。 */
+const VER = "2026-09-24i · 打包准备：静态托管友好（回报只在本地开）+ 手机 viewport + 内联图标";
+const REPORT_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname) ||
+                     location.protocol === "file:";
+let REPORT_OK = true;
+function report(evt, extra){
+  if (!REPORT_OK || !REPORT_LOCAL) return;
+  try{
+    const body = Object.assign({
+      ver:VER, evt:evt, href:location.href, ua:navigator.userAgent.slice(0,120),
+      curProfile:curProfile, profiles:profiles,
+      keyCount:KEYSET.size, keys:[...KEYSET].sort((a,b)=>a-b),
+      onCanvas:[...KEYSET].filter(k=>GEO[k]).sort((a,b)=>a-b),
+      offCanvas:[...KEYSET].filter(k=>!GEO[k]).sort((a,b)=>a-b),
+      logTail:[...$("log").children].slice(-14).map(d=>d.textContent)
+    }, extra||{});
+    fetch("/__report", {method:"POST", headers:{"Content-Type":"application/json"},
+                        body:JSON.stringify(body)}).catch(()=>{ REPORT_OK=false; });
+  }catch(e){}
+}
+/* 任何未捕获的错误都必须看得见 —— 否则页面出错时按钮点了像"没反应" */
+function guard(fn,name){ return async function(ev){
+  try { return await fn.call(this,ev); }
+  catch(e){ log("err","【"+name+"】出错："+(e&&e.message||e)); setState("出错·看日志",false); }
+};}
+window.addEventListener("error", e=>{ try{ log("err","页面错误："+e.message+" @"+e.lineno); }catch(_){} });
+window.addEventListener("unhandledrejection", e=>{ try{ log("err","未处理的异常："+((e.reason&&e.reason.message)||e.reason)); }catch(_){} });
+
+/* 图标键：官方按钮上没有文字（UIA 读到的 name 是空的），语义由样式名 + 实测确定 */
+const ICON = { 1:"电源", 2:"音量 +", 3:"音量 −", 5:"频道 +", 6:"频道 −",
+               8:"▲", 9:"▼", 10:"◀", 11:"▶", 12:"确认",
+               32:"蓝", 33:"红", 34:"绿", 35:"黄" };
+const KIND = { 1:"pwr", 8:"nav", 9:"nav", 10:"nav", 11:"nav", 12:"ok",
+               32:"blue", 33:"red", 34:"green", 35:"yellow" };
+
+function labelFor(key){
+  if (ICON[key]) return ICON[key];             // 图标键（官方按钮上没有文字）
+  if (LABELS[key]) return LABELS[key];         // 官方 XAML/UIA 里带文字的键
+  if (EXTRA[key]) return EXTRA[key];           // 弹出列表里的键（收藏夹/HDMI…）
+  if (key >= 20 && key <= 28) return String(key - 19);
+  if (key >= 36 && key <= 49) return "媒体" + (key - 35);   // 媒体区图标键，语义未知
+  if (key >= 50) return "扩展" + (key - 49);
+  return "键" + key;
+}
+/* ★ 设备键号的"全局语义"：从官方电视版面（位置->键号）反推出来的。
+   键号是设备自己的编号体系，同一个号在任何设备类型上都指同一件事，
+   所以非电视码表也能用这些名字（功放的 6/7 同样是音量±）。 */
+const GKEY = { 1:"电源", 4:"频道 +", 5:"频道 −", 6:"音量 +", 7:"音量 −", 8:"静音",
+               9:"1", 10:"2", 11:"3", 12:"4", 13:"5", 14:"6", 15:"7", 16:"8", 17:"9",
+               18:"0", 19:"确定", 22:"输入",
+               24:"媒体24", 25:"媒体25", 26:"媒体26", 27:"媒体27", 28:"媒体28",
+               30:"媒体30", 31:"媒体31", 34:"选项", 35:"指南", 36:"返回",
+               38:"▲", 39:"▼", 40:"◀", 41:"▶", 42:"确认",
+               77:"蓝", 78:"红", 79:"绿", 80:"黄", 120:"-/--", 121:"主页" };
+function devKeyLabel(k){
+  return GKEY[k] || labelFor(k);
+}
+function kindFor(key){
+  if (KIND[key]) return KIND[key];
+  if (key >= 20 && key <= 31) return "num";
+  return "";
+}
+function makeKey(key, cls, off){
+  const b = document.createElement("div");
+  b.className = "key " + (cls||"") + (off ? " off" : "");
+  const dk = devKeyFor(key);
+  b.innerHTML = "<b>" + labelFor(key) + "</b><i>" + (dk === key ? key : key + "→" + dk) + "</i>";
+  b.title = off
+    ? "位置 " + key + "（" + labelFor(key) + "）—— 官方版面上有这个位置，但这套码表里没有对应的码"
+    : "位置 " + key + " → 设备键号 " + dk + " (0x" + Number(dk).toString(16).toUpperCase() + ")";
+  if (!off) b.onclick = async ()=>{ b.classList.add("on"); setTimeout(()=>b.classList.remove("on"), 260);
+                                    await emit(curProfile, key); };
+  return b;
+}
+/* profile ID 的高位半字节就是设备类型（我们解出来的偏移规则） */
+const NIBBLE_TYPE = { 0x0:'T', 0x1:'C', 0x2:'N', 0x3:'S', 0x4:'V', 0x6:'Y', 0x7:'M', 0x8:'A', 0x9:'D' };
+const TYPE_CN = { T:'电视', C:'有线/IPTV', N:'视频配件', S:'卫星', V:'录像机',
+                  Y:'DVD', M:'功放/音频', A:'放大器', D:'CD', H:'家居控制' };
+/* profile 半字节 -> 候选设备类型（ControlDeviceType）。Y 和 M/R 一位对多型，靠键表匹配区分 */
+const NIBBLE_CANDS = { 0x0:[1], 0x1:[2], 0x2:[], 0x3:[4], 0x4:[7],
+                       0x6:[8,9,10,11], 0x7:[12,13,14,16,17,18,20,21,22,24],
+                       0x8:[19], 0x9:[15] };
+/* 官方版面里 keyId>0 的键，应该几乎全部落在设备键表里（-1 就是不支持被应用抹掉的），
+   所以"覆盖率最高"的那张就是这台设备真正的版面 */
+function pickLayout(prof){
+  if (prof === null || !Number.isFinite(prof)) return null;
+  const nib = '0x' + ((prof >> 12) & 0xF).toString(16);
+  const cands = (TYPEMAP.nibble_types && TYPEMAP.nibble_types[nib]) || NIBBLE_CANDS[(prof >> 12) & 0xF];
+  if (!cands || !cands.length) return null;
+  let best = null;
+  for (const t of cands){
+    const e = LAYBYTYPE[String(t)];
+    if (!e) continue;
+    for (const lay of e.layouts){
+      const keys = Object.values(lay).filter(v => v > 0 && v <= 255);
+      if (!keys.length) continue;
+      const hit = keys.filter(v => KEYSET.has(v)).length;
+      const score = hit / keys.length;
+      if (!best || score > best.score) best = {type:t, name:e.name, models:e.models, layout:lay, score:score};
+    }
+  }
+  return best;
+}
+function typeOfProfile(prof){
+  if (prof === null || !Number.isFinite(prof)) return null;
+  return NIBBLE_TYPE[(prof >> 12) & 0xF] || null;
+}
+/* 按键：位置 loc、该位置的设备键号 dk（来自官方版面） */
+function makeKeyLoc(loc, dk, off){
+  const b = document.createElement("div");
+  b.className = "key " + (kindFor(loc)||"") + (off ? " off" : "");
+  const nm = GKEY[dk] || labelFor(loc);
+  b.innerHTML = "<b>" + nm + "</b><i>" + loc + "→" + dk + "</i>";
+  b.title = off
+    ? "位置 " + loc + "（" + nm + "）—— 这套码表里没有对应的码"
+    : "位置 " + loc + " → 设备键号 " + dk + " (0x" + Number(dk).toString(16).toUpperCase() + ")　" + nm;
+  if (!off) b.onclick = async ()=>{ b.classList.add("on"); setTimeout(()=>b.classList.remove("on"), 260);
+                                    await emitKey(curProfile, dk, loc, nm); };
+  return b;
+}
+function renderRemote(){
+  const box = $("clusters");
+  if (curProfile === null){ box.innerHTML = '<div class="empty">还没有加载遥控器</div>'; return; }
+  box.innerHTML = "";
+  const showMissing = $("chkMissing") && $("chkMissing").checked;
+  const t = typeOfProfile(curProfile);
+  const isTV = (t === null || t === 'T');
+
+  /* ★ 非电视的码表**不能**按电视版面画 —— 电视版面上有频道键/数字键，
+     装的是功放/DVD 时那些位置根本不存在，画出来就是错的。
+     这种情况只列设备键表本身。 */
+  /* ★ 先试着用这台设备自己的官方版面（按 profile 类型自动挑）——
+     功放就画功放的版面，不会再冒出频道/数字键。 */
+  const lay = pickLayout(curProfile);
+  if (lay){
+    const cv = document.createElement("div");
+    cv.className = "canvas";
+    const drawn = [], offPanel = [], missing = [];
+    Object.keys(lay.layout).map(Number).sort((a,b)=>a-b).forEach(loc=>{
+      const dk = lay.layout[String(loc)];
+      if (!(dk > 0)) return;                      // -1 = 官方在这台设备上就没有这个键
+      if (loc === 1) return;                      // 位置 1 = 电源：官方放在窗口标题栏，页面里由顶栏那个按钮承担，别再画一遍
+      const have = KEYSET.has(dk);
+      if (!have){ missing.push(loc); if (!showMissing) return; }
+      const g = GEO[loc];
+      if (g){
+        const b = makeKeyLoc(loc, dk, !have);
+        const w = document.createElement("div");
+        w.className = "keywrap";
+        w.style.left   = ((g[0]-GEO_BOX[0])/GEO_BOX[2]*100).toFixed(3) + "%";
+        w.style.top    = ((g[1]-GEO_BOX[1])/GEO_BOX[3]*100).toFixed(3) + "%";
+        w.style.width  = (g[2]/GEO_BOX[2]*100).toFixed(3) + "%";
+        w.style.height = (g[3]/GEO_BOX[3]*100).toFixed(3) + "%";
+        w.appendChild(b); cv.appendChild(w);
+        if (have) drawn.push(loc);
+      } else if (have){
+        offPanel.push(loc);                       // 有键，但没抓到它在面板上的像素坐标
+      }
+    });
+    box.appendChild(cv);
+    if (offPanel.length){
+      const wrap = document.createElement("div"); wrap.className = "cl";
+      const h = document.createElement("div"); h.className = "clTitle";
+      h.textContent = "官方弹出列表里的键（这套版面上有，但不在主面板上）"; wrap.appendChild(h);
+      const g = document.createElement("div"); g.className = "grid";
+      g.style.gridTemplateColumns = "repeat(6,1fr)";
+      offPanel.forEach(loc=>{ g.appendChild(makeKeyLoc(loc, lay.layout[String(loc)], false)); });
+      wrap.appendChild(g); box.appendChild(wrap);
+    }
+    const used = new Set(Object.keys(lay.layout).map(l=>lay.layout[l]).filter(v=>v>0));
+    const leftover = [...KEYSET].filter(k=>!used.has(k)).sort((a,b)=>a-b);
+    if (leftover.length){
+      const wrap = document.createElement("div"); wrap.className = "cl";
+      const h = document.createElement("div"); h.className = "clTitle";
+      h.textContent = "设备键表里其它键号（这套码表有，版面上没有它的位置）"; wrap.appendChild(h);
+      const g = document.createElement("div"); g.className = "grid";
+      g.style.gridTemplateColumns = "repeat(8,1fr)";
+      leftover.forEach(k=>{ g.appendChild(makeKeyDev(k)); });
+      wrap.appendChild(g); box.appendChild(wrap);
+    }
+    /* 电源键（位置 1）不在主面板里 —— 官方把它放在窗口标题栏（FrameTitlePage.xaml）。
+       官方版面里位置 1 就是电源，所以这里把它单独接到顶栏那个按钮上。 */
+    const pwrKey = lay.layout["1"];
+    const pwrBtn = $("btnPower");
+    const pwrOk = (pwrKey > 0) && KEYSET.has(pwrKey);
+    pwrBtn.disabled = !pwrOk;
+    pwrBtn.title = pwrOk ? ("电源：位置 1 → 设备键号 " + pwrKey) : "这套码表里没有电源键的码";
+    pwrBtn.onclick = pwrOk ? (async ()=>{ await emitKey(curProfile, pwrKey, 1, "电源"); }) : null;
+    const dd = describeProf(curProfile);
+    $("rTitle").textContent = dd.title + " " + dd.sub + " · " + lay.name + " 版面 · " + drawn.length + " 个键";
+    $("keyInfo").innerHTML = "用<b>" + lay.name + "</b>的官方版面（" + (lay.models || []).join("/") +
+      " 同款，与设备键表吻合 " + Math.round(lay.score * 100) + "%）：可发 <b>" + drawn.length + "</b> 个键" +
+      (missing.length ? "；<b>不渲染</b> " + missing.length + " 个（这套码表没有）" : "") +
+      (offPanel.length ? "；另有 " + offPanel.length + " 个键在下面" : "");
+    const lbl2 = $("lblMissing"); if (lbl2) lbl2.style.display = missing.length ? "block" : "none";
+    log("sys", "遥控器已渲染：按「" + lay.name + "」版面（吻合 " + Math.round(lay.score * 100) +
+               "%）画 " + drawn.length + " 个键" + (missing.length ? "，略过 " + missing.length + " 个码表没有的" : ""));
+    report("render", {layoutType:lay.type, layoutName:lay.name, score:lay.score,
+                      drawn:drawn, missing:missing, offPanel:offPanel, leftover:leftover});
+    return;
+  }
+
+  /* 兜底：认不出设备类型（这种类型没注册过）→ 只列设备键表 */
+  if (!isTV){
+    const wrap = document.createElement("div"); wrap.className = "cl";
+    const h = document.createElement("div"); h.className = "clTitle";
+    h.textContent = "这套码表是「" + (TYPE_CN[t] || t) + "」，不是电视 —— 电视版面画上去会出现它根本没有的键。" +
+                    "下面按设备键号列出来（键名用的是全局语义：1=电源、6/7=音量±、8=静音…）";
+    wrap.appendChild(h);
+    const g = document.createElement("div"); g.className = "grid";
+    g.style.gridTemplateColumns = "repeat(8,1fr)";
+    [...KEYSET].sort((a,b)=>a-b).forEach(k=>{ g.appendChild(makeKeyDev(k)); });
+    wrap.appendChild(g); box.appendChild(wrap);
+    const dd = describeProf(curProfile);
+    $("rTitle").textContent = dd.title + " " + dd.sub + " · 设备键表 " + KEYSET.size + " 个键号";
+    $("keyInfo").innerHTML = "这套不是电视码表，所以不套电视版面（否则会出现它没有的频道/数字键）。" +
+      "下面按<b>设备键号</b>列出它真正支持的键，键名用全局语义（1=电源、6/7=音量±、8=静音、22=输入…）。";
+    log("sys","非电视码表（类型 " + t + "），按设备键表列出 " + KEYSET.size + " 个键号");
+    report("render", {type:t, mode:"device-key-grid", keyCount:KEYSET.size});
+    return;
+  }
+
+  /* ★ 电视：按官方版面画，但**只画这套码表真的有的键**（和官方应用一致：
+     官方是 Visibility 绑定 IsHasCommand，没有的键直接不渲染）。 */
+  const geoKeys = Object.keys(GEO).map(Number).sort((a,b)=>a-b);
+  const cv = document.createElement("div");
+  cv.className = "canvas";
+  const drawn = [], missing = [];
+  geoKeys.forEach(k=>{
+    const dk = devKeyFor(k);
+    const have = KEYSET.has(dk);
+    if (have) drawn.push(k); else missing.push(k);
+    if (!have && !showMissing) return;              // 不存在就**不渲染**
+    const b = makeKey(k, kindFor(k), !have);
+    const g = GEO[k];
+    const w = document.createElement("div");
+    w.className = "keywrap";
+    w.style.left   = ((g[0]-GEO_BOX[0])/GEO_BOX[2]*100).toFixed(3) + "%";
+    w.style.top    = ((g[1]-GEO_BOX[1])/GEO_BOX[3]*100).toFixed(3) + "%";
+    w.style.width  = (g[2]/GEO_BOX[2]*100).toFixed(3) + "%";
+    w.style.height = (g[3]/GEO_BOX[3]*100).toFixed(3) + "%";
+    w.appendChild(b);
+    cv.appendChild(w);
+  });
+  box.appendChild(cv);
+
+  // 设备键表里还有、版面上没安排的键号（弹出列表那类）
+  const usedKeys = new Set(geoKeys.map(k=>devKeyFor(k)));
+  const leftover = [...KEYSET].filter(k=>!usedKeys.has(k)).sort((a,b)=>a-b);
+  if (leftover.length){
+    const wrap = document.createElement("div"); wrap.className = "cl";
+    const h = document.createElement("div"); h.className = "clTitle";
+    h.textContent = "设备键表里其它键号（这套码表有，官方版面上没有它的位置）"; wrap.appendChild(h);
+    const g = document.createElement("div"); g.className = "grid";
+    g.style.gridTemplateColumns = "repeat(8,1fr)";
+    leftover.forEach(k=>{ g.appendChild(makeKeyDev(k)); });
+    wrap.appendChild(g); box.appendChild(wrap);
+  }
+  const dd = describeProf(curProfile);
+  $("rTitle").textContent = dd.title + " " + dd.sub + " · 这套码表 " + drawn.length + " 个键";
+  $("keyInfo").innerHTML = "按官方版面画：这套码表有的键 <b>" + drawn.length + "</b> 个" +
+    (missing.length ? "；<b>不渲染</b> " + missing.length + " 个（这套码表没有：✔ 勾上下面「显示没有的键」可以看它们在哪）" : "") +
+    "。左上角小字是「位置→设备键号」。";
+  const lbl = $("lblMissing"); if (lbl) lbl.style.display = missing.length ? "block" : "none";
+  log("sys", "遥控器已渲染：画 " + drawn.length + " 个键" +
+             (missing.length ? "，不渲染 " + missing.length + " 个（" + missing.map(labelFor).join("、") + "）" : ""));
+  report("render", {drawn:drawn, missing:missing, leftover:leftover,
+                    title:$("rTitle").textContent, showMissing:showMissing});
+}
+
+/* ---------------- 位置 -> 设备键号（官方 layout_table 解出来的）----------------
+   设备回的键表用的是「设备键号」，界面按钮号(locationNN)跟它**不是同一套**。
+   官方应用靠 CommonXML\layout_table_<类型>_<maker>_<region>.upd5.* 翻译：
+     <node><layoutId>button_2</layoutId><keyId>6</keyId><stringId>102405</stringId></node>
+   ⇒ 位置 2（音量 +）真正要发的键号是 6，不是 2 —— 这就是之前"键位不对"的根因。
+   这里用电视机那张（category 18 / maker NS），已用设备实测键表逐个校验：
+   39 个可见按钮映射出的键号 100% 落在设备键表里（39/39）。 */
+let LOC2KEY = {};
+let LAYBYTYPE = {};      // 设备类型 -> 官方实际版面（CustomLayout 解出来的）
+/* 位置 -> [x,y,w,h]：**纯从 XAML（FullControlPage.xaml 的 Grid 行列定义 + 样式里的宽高）算出来的**，
+   运行时从 panel_geometry.json 载入。同样一批坐标也用 UIA 抓过一次做交叉验证，比例完全吻合。 */
+let GEO = {};
+let GEO_BOX = [0, 0, 1120, 400];
+let TYPEMAP = { nibble_types:{}, type_names:{} };   // profile 半字节 -> 候选设备类型（数据推出来的）
+async function loadKeyMap(){
+  try{
+    const pg = await (await fetch("panel_geometry.json")).json();
+    GEO = {};                                  // 键统一成"位置号"，和版面表里的位置对齐
+    for (const [name, r] of Object.entries(pg.buttons || {})){
+      const m = /^location(\d+)$/.exec(name);
+      if (m) GEO[parseInt(m[1], 10)] = r;
+    }
+    GEO_BOX = [0, 0, pg.panel[0], pg.panel[1]];
+    log("sys","已载入面板坐标表（XAML 算的）：" + Object.keys(GEO).length + " 个位置，面板 " + pg.panel.join("x"));
+  }catch(e){ log("err","没载入 panel_geometry.json"); }
+  try{
+    LAYBYTYPE = await (await fetch("layouts_by_type.json")).json();
+    log("sys","已载入各设备类型的官方版面：" + Object.keys(LAYBYTYPE).length + " 种");
+  }catch(e){ LAYBYTYPE = {}; log("err","没载入 layouts_by_type.json"); }
+  try{
+    TYPEMAP = await (await fetch("type_map.json")).json();
+    log("sys","类型对照表：" + Object.keys(TYPEMAP.nibble_types || {}).length + " 个前缀");
+  }catch(e){ log("err","没载入 type_map.json"); }
+  try{
+  }catch(e){ LAYBYTYPE = {}; log("err","没载入 layouts_by_type.json"); }
+  try{
+    LOC2KEY = await (await fetch("loc2key_tv.json")).json();
+    log("sys","已载入官方按键映射表：" + Object.keys(LOC2KEY).length +
+              " 个位置（来自官方应用的版面表，AES 解出来的 CustomLayout）");
+  }catch(e){
+    LOC2KEY = {};
+    log("err","没载入 loc2key_tv.json，按键将按位置号直接发（设备可能回 01 03）");
+  }
+}
+/* 位置 -> 发给设备的键号。表里 ≥1000 的是"特殊键"，设备键号只占一个字节，这种退回位置号 */
+function devKeyFor(loc){
+  const k = LOC2KEY[loc];
+  return (k && k < 1000) ? k : loc;      // 表里没定义的退回位置号（非电视码表不会走到这里）
+}
+
+/* ---------------- 编号 → 品牌/型号 索引（profile ID 就是码表编号）----------------
+   设备里只存了「码表编号」这一个数字，没有品牌型号字段。所以：
+     ① 本页装过机 → KNOW 里存了确切的身份，直接用它（最准）；
+     ② 否则拿编号去码库里反查（同一个编号会被多种设备共用，例如 4090 同时是
+        Sony 的 T4090(TV)/D4090(CD)/Y4090(DVD)/R4090(功放)/V4090(录像机)，电视优先）。 */
+let NUMIDX = null, KNOW = {};
+function loadKnow(){
+  try { KNOW = JSON.parse(localStorage.getItem("vgp_know") || "{}") || {}; } catch(e){ KNOW = {}; }
+}
+function rememberProf(id, row){
+  KNOW[id] = [row[0], row[1], row[2]];
+  try { localStorage.setItem("vgp_know", JSON.stringify(KNOW)); } catch(e){}
+}
+function forgetProf(id){
+  if (KNOW && KNOW[id]){ delete KNOW[id];
+    try { localStorage.setItem("vgp_know", JSON.stringify(KNOW)); } catch(e){} }
+}
+function buildNumIndex(){
+  NUMIDX = new Map();
+  for (const r of INDEX){                      // r = [类型, 品牌, 名称, 偏移, 长度]
+    const m = String(r[2]).match(/(\d+)$/);
+    if (!m) continue;
+    const num = parseInt(m[1], 10);
+    let e = NUMIDX.get(num);
+    if (!e){ e = { types:[], byType:{}, type:null }; NUMIDX.set(num, e); }
+    if (!e.byType[r[0]]) e.byType[r[0]] = { brands:[], name:r[2], len:r[4] };
+    const bt = e.byType[r[0]];
+    if (!bt.brands.includes(r[1]) && bt.brands.length < 3) bt.brands.push(r[1]);
+    if (!e.types.includes(r[0])) e.types.push(r[0]);
+    if (r[0] === "TV") e.type = "TV";          // 电视最常见，优先拿它当主条目
+  }
+  for (const e of NUMIDX.values()) if (!e.type) e.type = e.types[0];
+  log("sys", "已建立「码表编号 → 品牌/型号」索引：" + NUMIDX.size + " 个编号");
+}
+const typeName = t => TYPE_NAMES[t] || t;
+function brandsOf(bt){
+  return bt.brands.join(" / ") + (bt.brands.length >= 3 ? " 等" : "");
+}
+/* ★ profile ID = 码表编号 + 设备类型偏移（这条是实测出来的，见 TYPE_OFFSET）。
+   所以反查码库时**必须先把偏移减掉**，否则全是"未知遥控器"。 */
+const NIBBLE_OFFSET = { 0x0:0x0000, 0x1:0x1000, 0x2:0x2000, 0x3:0x3000, 0x4:0x4000,
+                        0x6:0x6000, 0x7:0x7000, 0x8:0x8000, 0x9:0x9000 };
+/* 设备类型编号（应用的 ControlDeviceType）-> 码库里的类型名（UEI QuickSet 的叫法） */
+const TYPE_TO_QS = { 1:"TV", 2:"Cable, IPTV", 4:"Satellite/DSS", 6:"VCR", 7:"VCR",
+                     8:"DVD", 9:"DVD", 10:"DVD", 11:"DVD",
+                     12:"Receiver, Misc Audio", 13:"Receiver, Misc Audio", 14:"Receiver, Misc Audio",
+                     15:"CD", 16:"Receiver, Misc Audio", 17:"Receiver, Misc Audio",
+                     18:"Receiver, Misc Audio", 19:"Amplifier", 20:"Receiver, Misc Audio",
+                     21:"Receiver, Misc Audio", 22:"Receiver, Misc Audio", 24:"Receiver, Misc Audio",
+                     25:"Video Accessory", 26:"Cable, IPTV", 27:"Video Accessory", 28:"TV" };
+function qsTypeOf(typeNum){ return TYPE_TO_QS[typeNum] || null; }
+function codesetNumOf(prof){
+  const off = NIBBLE_OFFSET[(prof >> 12) & 0xF];
+  return (off === undefined) ? prof : ((prof - off) & 0xFFFF);
+}
+function describeProf(id){
+  const hexId = "0x" + id.toString(16).toUpperCase().padStart(4, "0");
+  const num = codesetNumOf(id);                  // 反推出来的码表编号
+  const k = KNOW[id];
+  if (k){                                     // 本页装机记录：品牌/型号确定无疑
+    return { title:k[1], sub:k[2] + " · " + typeName(k[0]),
+             tip:"profile " + hexId + "　码表编号 " + num + "　" + typeName(k[0]) + " " + k[1] + " " + k[2] +
+                 "（本工具装机记录，确定）", known:true };
+  }
+  const e = NUMIDX && NUMIDX.get(num);
+  if (!e) return { title:"未知遥控器 " + hexId, sub:"码库里查不到编号 " + num,
+                   tip:"profile " + hexId + "　反推码表编号 " + num + "（码库里没有这个编号）" };
+  // 这个 profile 的类型（由高位半字节定）优先，其次电视
+  const nibTypes = (TYPEMAP.nibble_types || {})['0x' + ((id >> 12) & 0xF).toString(16)] || [];
+  const qsNames = nibTypes.map(qsTypeOf).filter(Boolean);
+  const eType = e.types.find(t => qsNames.includes(t)) || e.type;
+  const bt = e.byType[eType] || Object.values(e.byType)[0];
+  const others = e.types.filter(t => t !== eType).map(typeName);
+  return { title:brandsOf(bt), sub:bt.name + " · " + typeName(eType) + " · " + bt.len + "B",
+           tip:"profile " + hexId + "　码表编号 " + num + "　" + typeName(eType) + " / " +
+               brandsOf(bt) + " / " + bt.name +
+               (others.length ? "　（同编号还有 " + others.join("、") + "）" : ""),
+           alts:e.types };
+}
+function renderProfCards(){
+  const box = $("profList");
+  box.innerHTML = "";
+  if (!profiles.length){ $("profRow").style.display = "none"; return; }
+  $("profRow").style.display = "flex";
+  profiles.forEach(p=>{
+    const d = describeProf(p);
+    const b = document.createElement("button");
+    b.className = "profCard" + (p === curProfile ? " on" : "");
+    b.innerHTML = "<b>" + d.title + "</b><i>" + d.sub + "</i>";
+    b.title = d.tip;
+    b.onclick = async ()=>{
+      curProfile = p;
+      try { localStorage.setItem("vgp_prof", String(p)); } catch(err){}
+      $("profile").value = "0x" + p.toString(16).toUpperCase().padStart(4,"0");
+      await readKeys(p);
+      renderProfCards();
+    };
+    box.appendChild(b);
+  });
+}
+
+/* ---------------- 码库 ---------------- */
+async function loadLib(){
+  try{
+    const meta = await (await fetch("qs_meta.json")).json();
+    INDEX = await (await fetch("qs_index.json")).json();
+    BLOBS = new Uint8Array(await (await fetch("qs_blobs.bin")).arrayBuffer());
+    $("lib").textContent = "码库 " + INDEX.length + " 份";
+    $("lib").className = "pill ok";
+    loadKnow();
+    buildNumIndex();
+    await loadKeyMap();
+    const sel = $("type"); sel.innerHTML = "";
+    meta.types.forEach(t=>{ const o=document.createElement("option"); o.value=t;
+      o.textContent=(TYPE_NAMES[t]||t); sel.appendChild(o); });
+    sel.value = "TV";
+  }catch(e){ $("lib").textContent = "码库载入失败"; $("lib").className="pill bad"; }
+  try{
+    const lay = await (await fetch("remote_layout2.json")).json();
+    lay.buttons.forEach(b=>{ if (b.label) LABELS[b.key] = b.label; });
+    (lay.extra||[]).forEach(b=>{ if (b.label) EXTRA[b.key] = b.label; });
+    log("sys","已载入官方布局：" + lay.buttons.length + " 个定位键 + " + (lay.extra||[]).length + " 个扩展键");
+    report("lib", {indexSize:INDEX.length, numidx:NUMIDX?NUMIDX.size:0, labels:Object.keys(LABELS).length});
+  }catch(e){ log("sys","没载入 remote_layout2.json（标签会退化）"); }
+  search();
+}
+function search(){
+  const t=$("type").value, b=$("brand").value.trim().toLowerCase(), out=[];
+  for (const r of INDEX){
+    if (t && r[0]!==t) continue;
+    if (b && !String(r[1]).toLowerCase().includes(b)) continue;
+    out.push(r); if (out.length>=300) break;
+  }
+  const el=$("list"); el.innerHTML="";
+  out.forEach(r=>{
+    const d=document.createElement("div");
+    d.textContent = r[1] + " · " + r[2] + " · " + r[4] + "B";
+    d.onclick=()=>{ selected=r; [...el.children].forEach(c=>c.classList.remove("sel"));
+                    d.classList.add("sel"); showSel(); };
+    el.appendChild(d);
+  });
+  $("selInfo").textContent = "找到 " + out.length + " 条" + (out.length>=300?"（只显示前 300）":"");
+}
+function showSel(){
+  const num = parseInt(String(selected[2]).match(/\d+$/)?.[0]||"", 10);
+  $("selInfo").textContent = selected[1] + " / " + selected[2] + "  " + selected[4] + " 字节" +
+      (isNaN(num) ? "" : "　profile = 0x" + num.toString(16).toUpperCase().padStart(4,"0"));
+  $("btnInstall").disabled = isNaN(num);
+}
+
+/* ---------------- WebUSB ---------------- */
+async function connect(){
+  log("sys","正在向浏览器申请设备…（会弹出一个选择框，选中 VGP-URM10 后点「连接」）");
+  setState("正在申请设备…", false);
+  try{
+    const d = await navigator.usb.requestDevice({filters:[{vendorId:0x054c,productId:0x0883}]});
+    await openDevice(d);
+  }catch(e){
+    const s = String(e && e.message || e);
+    if (/No device selected|user cancel|取消/i.test(s)){
+      log("err","授权框被取消了（没选中设备就关掉了）—— 再点一次「连接设备」，选中 VGP-URM10 再按「连接」");
+      log("sys","如果授权框里<b>根本没有</b>这一项，点右上「找不到设备？」或「自检」");
+    } else {
+      log("err","连接失败: " + s);
+    }
+    setState("连接失败", false);
+  }
+}
+/* 打开 + 占用 + 全自动初始化读列表 */
+async function openDevice(d){
+  try{
+    await d.open();
+    if (d.configuration === null) await d.selectConfiguration(1);
+    await d.claimInterface(0);
+    dev = d;
+    const eps = d.configuration.interfaces[0].alternate.endpoints;
+    ep = {in:null, out:null};
+    for (const e of eps){ if (e.direction==="in") ep.in=e.endpointNumber; else ep.out=e.endpointNumber; }
+    ["btnProfiles","btnKeys","btnDel","btnClearAll","btnRaw","btnKeys2","btnDel2","btnDisconnect","btnProbe","btnBurst"]
+      .forEach(id=>{ if ($(id)) $(id).disabled=false; });
+    report("connected", {product:d.productName});
+    log("sys","已连接 " + d.productName + "  IN=0x" + Number(ep.in).toString(16) + " OUT=0x" + Number(ep.out).toString(16));
+    $("devInfo").textContent = "接口 class=0x" + d.configuration.interfaces[0].alternate.interfaceClass.toString(16) +
+      "　端点 " + eps.length + " 个　序列号 " + (d.serialNumber || "?");
+    setState("已连接 ✓", true);
+    await setupDevice();          // ★ 全自动：初始化 → 读列表 → 渲染
+  }catch(e){
+    try{ await d.close(); }catch(_){}
+    if (dev === d) dev = null;
+    throw e;
+  }
+}
+/* 打开页面时如果以前授权过，就直接自动连上，不用点任何按钮 */
+async function autoConnect(){
+  if (!navigator.usb) return;
+  try{
+    const list = await navigator.usb.getDevices();
+    const t = list.find(d=>d.vendorId===0x054c && d.productId===0x0883);
+    if (!t){ log("sys","还没授权过这个适配器 → 点一次「连接设备」（以后打开本页会自动连）"); return; }
+    log("sys","发现以前授权过的 VGP-URM10，自动连接中…");
+    /* 只试一次（用户要求：没必要反复重试，一次就够了）。
+       失败时如实区分"真被占用"和"页面自己出错"，不要一律甩锅给设备。 */
+    try { await openDevice(t); return; }
+    catch(e){
+      const msg = String((e && e.message) || e);
+      log("err","自动连接失败：" + msg);
+      if (/claim|access denied|securityerror|networkerror|notfound|占用|busy/i.test(msg)){
+        log("sys","设备被别的程序占着（官方 VAIO 应用 / 另一个标签页 / Python 工具）——" +
+                  "关掉它们后点上面的「连接设备」即可，不用刷新页面。");
+        setState("未连接·设备被占用", false);
+      } else {
+        log("sys","这不像设备被占用，是页面自身出错 —— 上面那条 ERR 就是原因。可点「连接设备」重试。");
+        setState("未连接·连接出错", false);
+      }
+    }
+  }catch(e){
+    log("err","自动连接出错：" + (e && e.message || e));
+    setState("未连接·点「连接设备」", false);
+  }
+}
+function startReader(){
+  reading = true;
+  (async function loop(){
+    while (reading && dev){
+      try{ const r = await dev.transferIn(ep.in, 256);
+        if (r.data && r.data.byteLength){ const u8 = new Uint8Array(r.data.buffer.slice(0));
+          rxPush(u8); log("rx", hex(u8)); } }
+      catch(e){ if (reading) log("err","读管道异常: " + e); break; }
+    }
+  })();
+}
+/* ★★ 命令必须一条一条来（这就是"快速连击显示无回应"的根因，真设备实测）★★
+   设备固件上有个"装载窗口"：1 字节 0x00 打开窗口，命令帧必须落在窗口里，
+   而且不能和 0x00 挤在同一瞬间。实测（RE/tools/_arm_timing.py / _serial_rate.py）：
+
+     · 解锁后等 0ms 再发帧 → 0/10；等 3ms 以上 → 10/10（一直到 120ms 都行）
+     · 单条命令前后都没有别的命令时，怎么发都对
+     · 但**两条解锁字节之间没有帧**（= 旧代码并行连击时 USB 上的顺序）→ 窗口被打坏：
+       帧被丢弃、没有回应，而且之后一段时间（约 1 秒）里所有命令都被丢掉。
+       实测 8 条交错命令设备生成 0 条回应，串行发同样 8 条则 8/8 全回。
+     · 被打坏后要**完全静默**才能恢复（实测阈值在 200ms 与 400ms 之间：静默 200ms 还是 0/3，
+       静默 400ms 就 3/3 恢复；这里取 800ms 留一倍余量）。期间越点越糟糕，
+       因为每条命令里的解锁字节都会把那个静默期重新顶掉
+       （实测：被打坏后每 150ms 插一条命令，6 秒内一直不恢复；而静默一下就好了）。
+       这正是用户看到的"连击之后按键一直显示无回应"。
+
+   所以这里用一条 promise 链把所有命令排队，保证每个解锁字节后面紧跟自己的帧。 */
+let cmdChain = Promise.resolve();
+let cmdDepth = 0;                       // 队伍里的命令数（含正在跑的那条）
+let quietUntil = 0;                     // 设备被打坏后的"必须静默到"时间戳
+function withCmdLock(fn){
+  cmdDepth++;
+  const run = cmdChain.then(()=>fn());
+  cmdChain = run.then(()=>{cmdDepth--;}, ()=>{cmdDepth--;});
+  return run;
+}
+/* 解锁字节 → 命令帧之间要等多久。实测 3ms 就够（0ms 必挂），取 25ms 留足余量。
+   ★ 注意：按一个键的总耗时主要花在设备发射红外上（实测约 135ms 后才回 01 00），
+     所以这个数调小并不会让连击快多少；25ms 是"够稳 + 不浪费"的折中。 */
+const ARM_MS = 25;
+/* expect：可选过滤器，用来丢掉"迟到很久的、属于上一条命令的回应"
+   quiet：默认 true —— 超时就认为设备被打坏、强制静默；探测用的"释放帧"这类
+          本来就可能没回应的命令传 false，免得白白让探测变慢。 */
+async function cmd(frame, waitMs, expect, quiet){
+  waitMs = waitMs || 6000;
+  return withCmdLock(async ()=>{
+    const q = quietUntil - performance.now();          // 设备刚被打坏 → 先静默一会儿
+    if (q > 0){ log("sys","设备需要静默 " + Math.ceil(q) + "ms 才能再收命令（等它恢复）…"); await sleep(q); }
+    await dev.transferOut(ep.out, new Uint8Array([0x00]));   // 解锁 / 打开装载窗口
+    await sleep(ARM_MS);
+    let cursor = rxCount;                                     // 只承认这条命令发出之后到的帧
+    await dev.transferOut(ep.out, frame);
+    log("tx", hex(frame) + (cmdDepth > 1 ? "　（后面还排着 " + (cmdDepth-1) + " 条）" : ""));
+    const t0 = performance.now();
+    while (performance.now() - t0 < waitMs){
+      while (cursor < rxCount){
+        const r = rxAt(cursor++);
+        if (r === undefined) break;
+        if (expect && !expect(r)){ log("sys","※ 丢掉一条不属于本条命令的迟到回应 " + hex(r)); continue; }
+        return r;
+      }
+      await sleep(4);
+    }
+    if (quiet === false) return null;
+    quietUntil = performance.now() + 800;              // 超时 = 设备被打坏 → 强制一段静默（实测 400ms 就够）
+    log("err","没收到回应：设备很可能被交错的解锁字节卡住了 —— 已自动静默 0.8 秒再继续（这段时间别猛点）");
+    return null;
+  });
+}
+/* 按键类命令的回应固定是 2 字节 01 xx（列表/键表回应第一个字节是长度，≥3） */
+const expectKeyReply = r => !!r && r.length >= 2 && r[0] === 0x01;
+const frameOf = body => new Uint8Array(MAGIC.concat([(body.length>>8)&0xFF, body.length&0xFF], body));
+/* ★ profile ID = 码表编号 + 设备类型偏移（从应用自己的 DeviceTypeNumList 反推出来的）：
+     T 电视 0x0000 / C 有线 0x1000 / N 视频配件 0x2000 / S 卫星 0x3000 / V 录像机 0x4000
+     Y DVD 0x6000 / M,R 功放音频 0x7000 / A 放大器 0x8000 / D CD 0x9000
+   例：R4091 -> 0x7FFB（不是 0x0FFB），M4071 -> 0x7FE7（不是 0x0FE7）。 */
+const TYPE_OFFSET = { T:0x0000, C:0x1000, N:0x2000, S:0x3000, V:0x4000,
+                      Y:0x6000, M:0x7000, R:0x7000, A:0x8000, D:0x9000, H:0x0000 };
+function profileIdFor(name){
+  const m = String(name).match(/^([A-Z])(\d+)$/);
+  if (!m) return null;
+  const off = TYPE_OFFSET[m[1]];
+  if (off === undefined) return null;
+  return ((parseInt(m[2], 10) + off) & 0xFFFF);
+}
+function offsetTextFor(name){
+  const m = String(name).match(/^([A-Z])(\d+)$/);
+  if (!m || TYPE_OFFSET[m[1]] === undefined) return "";
+  return "（" + m[1] + " 类偏移 +0x" + TYPE_OFFSET[m[1]].toString(16).toUpperCase() + "）";
+}
+function pidBytes(s){ const v=parseInt(s,16)&0xFFFF; return [(v>>8)&0xFF, v&0xFF]; }
+function pidNum(s){
+  const t = String(s||"").trim().replace(/^0x/i,"");
+  if (!/^[0-9a-fA-F]{1,4}$/.test(t)) return NaN;      // 空串过去会被算成 0（于是发了 profile 0x0000）
+  return parseInt(t, 16);
+}
+
+async function initRegs(){
+  try{
+    /* 注意 recipient 必须是 interface（bmRequestType = 0x41），和实测抓包一致；
+       写成 device 会变成 0x40，设备不认 */
+    await dev.controlTransferOut({requestType:"vendor",recipient:"interface",request:0x00,value:1,index:0});
+    await dev.controlTransferOut({requestType:"vendor",recipient:"interface",request:0x1e,value:0,index:0},
+                                 new Uint8Array([0x00,0x4b,0x00,0x00]));
+    await dev.controlTransferOut({requestType:"vendor",recipient:"interface",request:0x19,value:0,index:0},
+                                 new Uint8Array([0x1a,0x00,0x00,0x1a,0x11,0x13]));
+    log("sys","初始化寄存器完成（0x41 0x00 / 0x41 0x1E / 0x41 0x19）");
+  }catch(e){
+    log("err","初始化寄存器失败：" + e + "（继续尝试直接读遥控器列表）");
+  }
+  await autoLoad();          // 自动读取并展示设备里已装的遥控器
+}
+/* 连上之后要做的全部事情：开读线程 → 初始化 → 自动列出已装遥控器并渲染按键 */
+async function setupDevice(){
+  startReader();
+  await sleep(200);          // 让读线程先跑起来，免得第一帧回应没人收
+  await initRegs();
+}
+async function readProfiles(){
+  if (!NUMIDX && INDEX.length) { loadKnow(); buildNumIndex(); }   // 码库还没建好索引时补一次
+  let r = await cmd(frameOf([0x11]), 6000);
+  if (!r){ log("sys","第一次没收到列表回应，再试一次（设备刚唤醒时可能要几秒）"); r = await cmd(frameOf([0x11]), 9000); }
+  log("sys","列表原始回应：" + (r ? hex(r) : "（无回应）"));
+  profiles = [];
+  if (r && r.length>=3 && r[1]===0x00)
+    for (let i=0;i<r[2];i++) if (3+2*i+1<r.length) profiles.push((r[3+2*i]<<8)|r[4+2*i]);
+  $("prof").textContent = "已装遥控器 " + profiles.length + " 台";
+  log("sys","设备里的遥控器：" + (profiles.map(p=>describeProf(p).title + "(0x"+p.toString(16).toUpperCase().padStart(4,"0")+")").join("  ") || "(空)"));
+  renderProfCards(); report("profiles");
+  return profiles;
+}
+
+/** 自动加载：读列表 -> 选上次用过的那台（否则选最后一台）-> 渲染遥控器 */
+async function autoLoad(){
+  await readProfiles();
+  if (!profiles.length){ log("sys","设备里还没有遥控器 —— 左边选一份码表装机吧"); return; }  let last = NaN;
+  try { last = parseInt(localStorage.getItem("vgp_prof") || "", 10); } catch(e){}
+  const pick = profiles.includes(last) ? last : profiles[profiles.length-1];
+  curProfile = pick;
+  $("profile").value = "0x" + pick.toString(16).toUpperCase().padStart(4,"0");
+  await readKeys(pick);
+  renderProfCards();
+  log("sys","已自动加载：" + describeProf(pick).title);
+}
+function installOk(r){ return !!r && r[0]===0x01 && (r[1]===0x00 || r[1]===0x80 || r[1]===0x08); }
+function installMeaning(r){
+  if (!r) return "(无回应)";
+  return {0x00:"装入已有 profile", 0x80:"新建 profile 装入", 0x08:"已存在（无变化）",
+          0x05:"容量满", 0x01:"编号与数据不符", 0x07:"帧/数据错误"}[r[1]] || "未知";
+}
+async function install(){
+  if (!selected) return;
+  const prof = profileIdFor(selected[2]);
+  if (prof === null){ log("err","码表名 " + selected[2] + " 认不出设备类型前缀，算不出 profile ID"); return; }
+  const pid = [(prof>>8)&0xFF, prof&0xFF];
+  installStatus("", "");          // 清掉上次的状态
+  await readProfiles();
+  const data = BLOBS.slice(selected[3], selected[3]+selected[4]);
+  const body = [0x22].concat(pid, Array.from(data));
+  log("sys","装机：profile = 0x" + prof.toString(16).toUpperCase().padStart(4,"0") +
+            offsetTextFor(selected[2]) + "  码表 " + selected[4] + " 字节");
+  let r = await cmd(frameOf(body), 4000);
+  /* 只有设备明确回"容量满(01 05)"时才考虑腾位子，而且必须用户点头 ——
+     之前是"装机失败就删最后一个"，太危险（会把已经装好的遥控器干掉）。 */
+  const full = r && r[0]===0x01 && r[1]===0x05;
+  if (full && profiles.length){
+    const v = profiles[profiles.length-1];
+    if (confirm("设备槽位满了（最多 4 台）。\n要删掉最后一台 0x" + v.toString(16).toUpperCase().padStart(4,"0") +
+                " 腾位置吗？")){
+      await cmd(frameOf([0x0c,(v>>8)&0xFF,v&0xFF]));
+      await sleep(400);
+      r = await cmd(frameOf(body), 4000);
+    }
+  }
+  const ok = installOk(r);
+  log("sys", (ok?"★ 装机成功：":"装机失败：") + selected[1]+" / "+selected[2] +
+      "  profile 0x"+prof.toString(16).toUpperCase().padStart(4,"0") + "  -> " + installMeaning(r));
+  installStatus(ok ? "ok" : "bad",
+      (ok ? "✓ 已装机：" : "✗ 装机失败：") + selected[1] + " / " + selected[2] +
+      "　profile 0x" + prof.toString(16).toUpperCase().padStart(4,"0") + "　" + installMeaning(r) +
+      (ok ? "" : "—— 这台遥控器没有装进设备，下面「已装的遥控器」里当然不会出现它"));
+  if (ok){ curProfile = prof;
+           rememberProf(prof, selected);       // 记下这台机里装的到底是哪个品牌/型号
+           try { localStorage.setItem("vgp_prof", String(prof)); } catch(e){}
+           $("profile").value = "0x" + prof.toString(16).toUpperCase().padStart(4,"0");
+           await readKeys(); await readProfiles(); }
+}
+function installStatus(cls, text){
+  const el = $("installMsg");
+  el.className = "hint " + (cls || "");
+  el.textContent = text || "";
+  el.style.display = text ? "block" : "none";
+}
+/* 设备对"按键"的回应含义（§18.3 实测）：
+   01 00 = 有码、受理   01 03 = 这套码表里没有这个键的码   01 01 = 参数不对   01 07 = 帧错 */
+const KEYREPLY = { 0x00:"✓ 已发射", 0x03:"这套码表里没有这个键的码", 0x01:"被拒绝（参数不符）",
+                   0x07:"帧格式错", 0x05:"容量满", 0x08:"已存在" };
+function keyReplyText(r){
+  if (!r) return "无回应";
+  if (r[0] === 0x01) return KEYREPLY[r[1]] || ("回应 " + hex(r));
+  return "回应 " + hex(r);
+}
+async function readKeys(){
+  const prof = curProfile !== null ? curProfile : pidNum($("profile").value);
+  if (!Number.isFinite(prof)){ log("err","没有可用的 profile —— 先在左边选码表装机，或在③里填一个已有的 profile 号"); return []; }
+  const r = await cmd(frameOf([0x02,(prof>>8)&0xFF,prof&0xFF]));
+  /* 回应的格式是 [len] 00 <键号...>：**第一位键号 0x01 就直接跟在 00 后面**，
+     以前我按"[len] 00 01 <键号...>"去解析，把 0x01（电源键）当成类型字节吃掉了。 */
+  KEYSET = new Set();
+  if (r && r.length>2 && r[1]===0x00) Array.from(r.slice(2)).forEach(k=>KEYSET.add(k));
+  curProfile = prof;
+  $("profile").value = "0x" + prof.toString(16).toUpperCase().padStart(4,"0");
+  log("sys","键表原始回应：" + (r ? hex(r) : "（无回应）"));
+  log("sys","解析出的键号（" + KEYSET.size + " 个）：" + [...KEYSET].sort((a,b)=>a-b).join(","));
+  renderRemote();
+  return [...KEYSET];
+}
+/* emit(profile, 位置号)：位置号先用官方映射表翻成设备键号再发 */
+async function emit(prof, loc){ return emitKey(prof, devKeyFor(loc), loc, labelFor(loc)); }
+/* 按"位置 + 该位置的设备键号"发射（键号来自官方版面表） */
+/* 连击的排队上限：实测按一个键设备要发射约 135ms 才回 01 00，
+   排太多只会让"最后一次"越来越迟（10 条约 1.6 秒消化完），但**绝不丢**——
+   比旧代码"看着发出去了、其实被设备丢掉"强。超出上限才丢，并明确告诉用户。 */
+let keyQ = 0;
+const KEY_Q_MAX = 10;
+async function emitKey(prof, key, loc, name){
+  if (prof === null || prof === undefined || !Number.isFinite(prof)){
+    log("err","没有选中遥控器，按了也不会发 —— 先点「已装的遥控器」里的卡片");
+    return;
+  }
+  name = name || devKeyLabel(key);
+  if (keyQ >= KEY_Q_MAX){
+    log("sys","连击太快：丢掉一次多余发射（队列已满 " + keyQ + "/" + KEY_Q_MAX + "，设备一次只能走一条命令）");
+    report("emit-drop", {loc:loc, key:key, q:keyQ});
+    return;
+  }
+  keyQ++;
+  try{
+    if (keyQ > 1) $("lastSent").textContent = "排队中…（前面还有 " + (keyQ-1) + " 条，设备一次只能发一条）";
+    const r = await cmd(frameOf([0x01,(prof>>8)&0xFF,prof&0xFF,key,0x80,0x00,0x00]), 900, expectKeyReply);
+    const txt = keyReplyText(r) + (keyQ > 1 ? "（这条是排队发出的）" : "");
+    const hx = "0x" + Number(key).toString(16).toUpperCase().padStart(2,"0");
+    $("lastSent").textContent = new Date().toLocaleTimeString() + " " + name +
+        "（位置 " + loc + " → 设备键号 " + hx + "）：" + txt;
+    log(r && r[0]===0x01 && r[1]===0x00 ? "rx" : "err",
+        "按键 " + name + " 位置 " + loc + " → 键号 " + hx + " -> " + txt);
+    report("emit", {loc:loc, key:key, reply: r ? hex(r) : null, text: txt, q:keyQ});
+  } finally { keyQ--; }
+}
+/* 直接按设备键号发射（用于官方版面上没有位置、但设备键表里有的键号） */
+async function emitRaw(key){
+  if (curProfile === null || !Number.isFinite(curProfile)){ log("err","没有选中遥控器"); return; }
+  const r = await cmd(frameOf([0x01,(curProfile>>8)&0xFF,curProfile&0xFF,key,0x80,0x00,0x00]), 900, expectKeyReply);
+  const txt = keyReplyText(r);
+  $("lastSent").textContent = new Date().toLocaleTimeString() + " 设备键号 0x" +
+      key.toString(16).toUpperCase().padStart(2,"0") + "：" + txt;
+  log(r && r[0]===0x01 && r[1]===0x00 ? "rx" : "err",
+      "直接发键号 0x" + key.toString(16).toUpperCase().padStart(2,"0") + " -> " + txt);
+  report("emitRaw", {key:key, reply: r ? hex(r) : null, text: txt});
+}
+function makeKeyDev(key){
+  const b = document.createElement("div");
+  b.className = "key extra";
+  b.innerHTML = "<b>" + devKeyLabel(key) + "</b><i>" + key + "</i>";
+  b.title = "设备键号 0x" + key.toString(16).toUpperCase() + "（" + devKeyLabel(key) +
+            "）—— 直接按号发";
+  b.onclick = async ()=>{ b.classList.add("on"); setTimeout(()=>b.classList.remove("on"), 260);
+                          await emitRaw(key); };
+  return b;
+}
+/* 探测：把 1..max 逐个按一遍，看哪些键号这套码表里有码（用来发现真实的键号表） */
+async function probeKeys(max){
+  max = max || 40;
+  if (curProfile === null || !Number.isFinite(curProfile)){
+    log("err","当前没有选中遥控器（profile 为空）—— 先点上面「已装的遥控器」卡片选一台，或先装机");
+    return;
+  }
+  const have = [], none = [];
+  log("sys","开始探测键号 1.." + max + "（每个键按一下，约 " + Math.ceil(max*0.35) + " 秒）…");
+  for (let k = 1; k <= max; k++){
+    const r = await cmd(frameOf([0x01,(curProfile>>8)&0xFF,curProfile&0xFF,k,0x80,0x00,0x00]), 700);
+    await cmd(frameOf([0x01,(curProfile>>8)&0xFF,curProfile&0xFF,k,0x00,0x00,0x00]), 350, null, false);
+    if (r && r[0]===0x01 && r[1]===0x00) have.push(k); else none.push(k);
+  }
+  log("sys","★ 这套码表里有码的键号（" + have.length + " 个）：" + have.join(","));
+  log("sys","没有码的键号：" + none.join(","));
+  $("keyInfo").innerHTML = "探测结果：这套码表里有码的键号共 <b>" + have.length + "</b> 个：" + have.join(", ");
+  report("probe", {max:max, have:have, none:none});
+}
+/* ★ 连击自检：同一帧连发 n 次，先按"旧代码的并行做法"，再按"现在的串行做法"，
+   数设备到底回了几条 —— 用来证明假"无回应"是**命令被交错的解锁字节冲掉**了，
+   而不是"读得不够快"（回应是设备发射完才给的，约 135ms，跟读速度没关系）。
+   ★ 注意：① 会把设备打进"卡住"状态（之后约 1 秒内什么命令都不理），
+      所以中间故意静默 1.4 秒让它自己恢复，再做 ②。 */
+async function burstRaw(frame, waitMs){        // 复刻旧 cmd()：并行 + 拿数组长度当基准
+  waitMs = waitMs || 1200;
+  const before = rxCount;
+  await dev.transferOut(ep.out, new Uint8Array([0x00]));
+  await sleep(60);
+  await dev.transferOut(ep.out, frame);
+  const t0 = performance.now();
+  while (performance.now() - t0 < waitMs){
+    if (rxCount > before) return rxAt(rxCount-1);
+    await sleep(4);
+  }
+  return null;
+}
+async function burstTest(n){
+  n = n || 8;
+  if (!dev){ log("err","先点「连接设备」"); return; }
+  const prof = curProfile !== null && Number.isFinite(curProfile) ? curProfile : pidNum($("profile").value);
+  if (!Number.isFinite(prof)){ log("err","先在「已装的遥控器」里点一台，或在③里填 profile 号"); return; }
+  const key = KEYSET.size ? [...KEYSET].sort((a,b)=>a-b)[0] : 2;
+  const frame = frameOf([0x01,(prof>>8)&0xFF,prof&0xFF,key,0x80,0x00,0x00]);
+  const hexKey = "0x" + key.toString(16).toUpperCase().padStart(2,"0");
+  log("sys","=== 连击自检：同一帧连发 " + n + " 次（profile 0x" + prof.toString(16).toUpperCase() +
+          "，键号 " + hexKey + "），每次间隔 45ms ===");
+  const c0 = rxCount;
+  await Promise.all(Array.from({length:n}, (_, i)=> (async()=>{ await sleep(i*45); await burstRaw(frame); })()));
+  await sleep(1400);                    // ★ 让设备静默恢复（它被①打坏了）
+  const a = rxCount - c0;
+  log("sys","① 旧做法（并行发 = 浏览器快速连击）：发 " + n + " 条，设备总共只回了 " + a + " 条");
+  log("sys","   （被丢掉的命令连红外都没发出去 —— 设备把它们整个丢了）");
+  log("sys","   （上面那 1.4 秒静默是必须的：设备被打坏后约 400ms 内不理任何命令，越点越坏）");
+  let ok = 0;
+  for (let i=0;i<n;i++){ const r = await cmd(frame, 900, expectKeyReply); if (r) ok++; }
+  log("sys","② 新做法（排队串行发）：发 " + n + " 条，收回 " + ok + " 条回应");
+  log("sys","=== 连击自检结束 ===");
+  $("keyInfo").innerHTML = "连击自检：并行 " + n + " 发只回 <b>" + a + "</b> 条；串行 " + n +
+      " 发回 <b>" + ok + "</b> 条" + (a < n ? "　→ 旧做法的回应确实被冲掉了" : "");
+  report("burst", {n:n, parallelReplies:a, serialReplies:ok, key:key, prof:prof});
+}
+async function delProfile(){
+  const prof = pidNum($("profile").value);
+  if (!confirm("确定要从适配器里删除 profile 0x" + prof.toString(16).toUpperCase().padStart(4,"0") +
+               " 吗？\n（这是设备侧的删除，删了要重新装机）")) return;
+  await cmd(frameOf([0x0c,(prof>>8)&0xFF,prof&0xFF]));
+  log("sys","已删除 profile 0x"+prof.toString(16).toUpperCase().padStart(4,"0"));
+  forgetProf(prof);
+  if (curProfile === prof){ curProfile=null; KEYSET=new Set(); renderRemote(); }
+  await readProfiles(); renderProfCards();
+}
+async function clearAll(){
+  if (!confirm("确定要清空适配器里**全部**遥控器吗？\n这会把设备里所有 profile 都删掉（要重新装机才能恢复）")) return;
+  await readProfiles();
+  for (const p of profiles.slice()){
+    await cmd(frameOf([0x0c,(p>>8)&0xFF,p&0xFF])); await sleep(300);
+  }
+  log("sys","已清空所有 profile");
+  KNOW = {}; try { localStorage.removeItem("vgp_know"); } catch(e){}
+  curProfile=null; KEYSET=new Set(); renderRemote(); await readProfiles();
+}
+async function rawSend(){ await cmd(fromHex($("rawHex").value)); }
+async function disconnect(){
+  reading=false;
+  try{ if (dev){ try{ await dev.releaseInterface(0); }catch(e){} await dev.close(); } }catch(e){}
+  dev=null; ep={in:null,out:null}; profiles=[]; curProfile=null; KEYSET=new Set();
+  document.querySelectorAll("button").forEach(b=>{});
+  ["btnProfiles","btnKeys","btnDel","btnClearAll","btnRaw","btnDisconnect","btnKeys2","btnDel2","btnProbe","btnBurst"]
+    .forEach(id=>{ if ($(id)) $(id).disabled=true; });
+  setState("已断开", false); renderRemote();
+  log("sys","已释放设备（Python 工具现在可以用它）");
+}
+
+/* ---------------- 找不到设备？ ---------------- */
+function download(n){ const a=document.createElement("a"); a.href=n; a.download=n;
+  document.body.appendChild(a); a.click(); a.remove(); log("sys","开始下载 " + n); }
+async function copyCmd(){
+  const url = new URL("install-winusb.ps1", document.location.href).href;
+  const c = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:VGP_URL=\'' + url + '\'; irm $env:VGP_URL | iex"';
+  const el=$("dlgCmd"); el.textContent=c; el.style.display="block";
+  try{ await navigator.clipboard.writeText(c); log("sys","安装命令已复制"); }catch(e){ log("sys","请手动复制命令"); }
+}
+function showHelp(){
+  $("help").style.display="flex";
+  navigator.usb.getDevices().then(l=>{
+    const has = l.some(d=>d.vendorId===0x054c && d.productId===0x0883);
+    $("helpDiag").innerHTML = dev ? "· 当前已连接 ✓ 不需要装驱动"
+      : (has ? "· 本页面已授权过该设备 → 直接点「连接设备」"
+             : "· 还没有拿到该设备 —— 如果授权框是空的，就是驱动没绑 WinUSB");
+  }).catch(()=>{});
+}
+function hideHelp(){ $("help").style.display="none"; }
+/* ---------------- 自检：一键把"为什么没反应"查清楚 ---------------- */
+async function diag(){
+  log("sys","=== 自检开始 ===");
+  log("sys","页面地址：" + location.href);
+  log("sys","WebUSB：" + (navigator.usb ? "有" : "没有") + "　安全上下文：" + (window.isSecureContext ? "是" : "否"));
+  log("sys","码库：" + (INDEX.length ? INDEX.length + " 份 · 编号索引 " + (NUMIDX ? NUMIDX.size : 0) + " 个" : "还没载入（刷新一次）"));
+  log("sys","页面来源：" + (REPORT_LOCAL ? "本地服务器（回报已开）" : "静态托管（回报已关）"));
+  if (!navigator.usb){
+    log("err","这个浏览器没有 WebUSB —— 必须用 Chrome 或 Edge 打开本页");
+    if (!window.isSecureContext)
+      log("sys","原因就是「安全上下文：否」—— WebUSB 只认 https:// 或 http://localhost / 127.0.0.1。" +
+                "用局域网 IP（http://192.168.x.x）打开时浏览器一定会关掉 WebUSB，跟服务器怎么绑定无关。" +
+                "要跨设备用，就把它放到 https 上（例如 GitHub Pages）。");
+    log("sys","另外记住：适配器插在谁身上，就只能由**那台机器**的浏览器操作它。");
+    return;
+  }
+  let list = [];
+  try { list = await navigator.usb.getDevices(); }
+  catch(e){ log("err","getDevices 失败：" + e); }
+  log("sys","本页已授权设备：" + (list.length
+      ? list.map(d=>"0x"+d.vendorId.toString(16)+":0x"+d.productId.toString(16)+" "+(d.productName||"?")).join("，")
+      : "无（第一次连接要在浏览器弹出的框里选一次）"));
+  if (dev){ log("sys","当前已连接 ✓ 无需重连；直接点「初始化」"); return; }
+  const t = list.find(d=>d.vendorId===0x054c && d.productId===0x0883);
+  if (!t){ log("sys","设备不在已授权列表 → 点「连接设备」，在弹出框里选 VGP-URM10"); return; }
+  try{
+    await t.open();
+    if (t.configuration === null) await t.selectConfiguration(1);
+    log("sys","open + selectConfiguration 成功，接口 " + t.configuration.interfaces.length + " 个");
+    await t.claimInterface(0);
+    log("sys","★ 成功独占接口 0 —— 设备空闲，WebUSB 完全可用");
+    await t.releaseInterface(0); await t.close();
+    log("sys","已释放设备。现在点「连接设备」会直接连上（不再弹框）");
+  }catch(e){
+    log("err","打开/独占失败：" + e);
+    log("sys","→ 设备被别的程序占着：关掉 VAIO Remote control 应用 / 其它标签页 / Python 工具，拔插一次再试");
+  }
+  log("sys","=== 自检结束 ===");
+}
+
+/* ---------------- 事件 ---------------- */
+$("btnConnect").onclick=guard(connect,"连接设备");
+$("btnProfiles").onclick=guard(readProfiles,"读 profile");
+$("btnProbe").onclick=guard(()=>probeKeys(48),"探测可用键号");
+$("btnBurst").onclick=guard(()=>burstTest(8),"连击自检");
+$("btnDisconnect").onclick=guard(disconnect,"断开");
+$("btnSearch").onclick=guard(search,"搜索");
+$("btnInstall").onclick=guard(install,"装机");
+$("btnKeys").onclick=guard(readKeys,"读键表"); $("btnKeys2").onclick=guard(readKeys,"读键表");
+$("btnDel").onclick=guard(delProfile,"删除"); $("btnDel2").onclick=guard(delProfile,"删除");
+$("btnClearAll").onclick=guard(clearAll,"清空全部");
+$("btnRaw").onclick=guard(rawSend,"发原始帧");
+$("btnDiag").onclick=guard(diag,"自检");
+$("btnClearLog").onclick=()=>{ $("log").innerHTML=""; $("logInfo").textContent="0 条"; };
+$("chkMissing").onchange=guard(()=>renderRemote(),"显示缺失键");
+$("btnCopyLog").onclick=guard(async ()=>{
+  const txt = [...$("log").children].map(d=>d.textContent).join("\n");
+  await navigator.clipboard.writeText(txt || "(日志为空)");
+  log("sys","日志已复制到剪贴板（" + $("log").childElementCount + " 条），可以直接粘贴出来");
+},"复制日志");
+$("btnHelp").onclick=guard(showHelp,"帮助");
+$("brand").addEventListener("keydown", guard(e=>{ if (e.key==="Enter") return search(); },"搜索"));
+
+loadLib();
+renderRemote();
+log("sys","版本：" + VER);
+log("sys","就绪：点一次「连接设备」授权后，本页会自动初始化并列出设备里已装的遥控器");
+report("boot");
+log("sys","浏览器支持 WebUSB：" + (navigator.usb ? "是" : "否（请用 Chrome / Edge 打开）") +
+          "　安全上下文：" + (window.isSecureContext ? "是" : "否"));
+autoConnect();
+</script>
+</body>
+</html>
