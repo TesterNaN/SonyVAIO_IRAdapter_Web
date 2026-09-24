@@ -21,6 +21,20 @@
   .hint { color:var(--dim); font-size:11px; line-height:1.7; }
   .wrap { display:grid; grid-template-columns: 360px minmax(420px,1fr) 380px; gap:12px; padding:12px; }
   @media (max-width:1200px) { .wrap { grid-template-columns:1fr; } }
+  /* ---- 手机（安卓 + OTG 线是零安装玩法，实测能用）----
+     1) 把遥控器面板提到最前，不用先滚过"搜索/装机/命令"三块；
+     2) 面板宽度受限时给画布一个最小宽度 + 横向滚动，键才有手指大小
+        （否则 1568x700 的画布压到 380px 宽，每个键只剩 20 多像素）； */
+  @media (max-width:820px) {
+    .wrap { padding:6px; gap:8px; }
+    .wrap > .panel:nth-child(2) { order:-1; }
+    header { padding:7px 10px; gap:8px; }
+    h1 { font-size:14px; }
+    .clusters { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .canvas { min-width:660px; }
+    #log { max-height:200px; }
+    .remote { padding:8px; }
+  }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px; }
   .panel h2 { font-size:13px; margin:0 0 8px; color:var(--acc); font-weight:600; }
   button { background:#26303d; color:var(--fg); border:1px solid var(--line); border-radius:6px;
@@ -201,6 +215,10 @@
       验证：<code>Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Enum\USB\VID_054C&PID_0883\*' | Select Service</code>
       → 应显示 <code>Service : WINUSB</code>
     </div>
+    <div class="hint" style="margin-top:8px;">
+      <b>安卓手机不用装驱动</b>（实测有效）：用支持数据的 USB-C OTG 线把适配器接到手机，打开本页就能直接用 ——
+      安卓走内核 usbfs + 系统 USB 授权，不存在 Windows 那种"必须绑 WinUSB"的问题。
+    </div>
     <div class="hint" id="helpDiag" style="margin-top:8px; color:var(--warn);"></div>
     <div class="row" style="margin-top:12px; justify-content:flex-end;">
       <button onclick="hideHelp()">知道了</button>
@@ -240,7 +258,7 @@ function setState(t,ok){ $("state").textContent=t; $("state").className="pill "+
    回报失败不影响使用：没有那个接口就静默忽略。
    ★ 托管到 GitHub Pages 之类的静态站点时**不发回报**（那边没有 /__report 接口，
      发了只会在控制台刷 404），只在本地服务器上开。 */
-const VER = "2026-09-24j · 驱动只留一个按钮（下载原厂安装包）；删掉 irm 一行命令 + 自制 INF（x64 拒签）";
+const VER = "2026-09-24k · 手机版：把遥控器提到最前 + 横向滚动让键有手指大小；说明安卓免驱动";
 const REPORT_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname) ||
                      location.protocol === "file:";
 let REPORT_OK = true;
